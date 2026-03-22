@@ -1,0 +1,1464 @@
+import CoreLocation
+import MapKit
+import Observation
+import SwiftUI
+
+struct TrainMapTabView: View {
+    @State private var connectionCenter = SignalRConnectionCenter.shared
+    @State private var locationManager = TrainMapLocationManager()
+    @State private var viewModel = TrainMapTabViewModel()
+    @State private var isZoomedOut = false
+    @State private var isCountryZoomedOut = false
+    @State private var isTrainListPresented = false
+    @State private var showsStationMarkers = true
+    @State private var showsStationMarkerLabels = true
+    @State private var showsTrainMarkers = true
+    @State private var selectedStationID: UUID?
+    @State private var trainListDragOffset: CGFloat = 0
+    @State private var mapMode: TrainMapMode = .standard
+    @State private var trainForStationsView: TrainMessage?
+    @State private var isTrainStationsViewPresented = false
+    @State private var visibleRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
+        span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
+    )
+    @State private var position: MapCameraPosition = .region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
+            span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
+        )
+    )
+
+    var body: some View {
+        NavigationStack {
+            Map(position: $position) {
+                routeOverlayContent
+                currentLocationContent
+                stationAnnotationContent
+                trainAnnotationContent
+            }
+            .mapStyle(mapMode.mapStyle)
+            .mapControls {
+                MapCompass()
+                MapScaleView()
+                MapPitchToggle()
+            }
+            .onMapCameraChange { context in
+                let region = expandedRegion(for: context.region)
+                let span = context.region.span
+                visibleRegion = region
+                isZoomedOut = span.latitudeDelta > 1.6 || span.longitudeDelta > 1.6
+                isCountryZoomedOut = span.latitudeDelta > 8.5 || span.longitudeDelta > 8.5
+            }
+            .onChange(of: locationManager.currentLocation) { _, newValue in
+                guard let coordinate = newValue else {
+                    return
+                }
+
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    position = .region(
+                        MKCoordinateRegion(
+                            center: coordinate.clCoordinate,
+                            span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
+                        )
+                    )
+                }
+            }
+            .overlay(alignment: .top) {
+                markerTogglePanel
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
+            }
+            .overlay(alignment: .topLeading) {
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .padding()
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .padding(12)
+                        .background(.thinMaterial, in: Circle())
+                        .padding()
+                }
+            }
+            .overlay(alignment: .top) {
+                if let selectedTrain {
+                    SelectedTrainCard(
+                        train: selectedTrain,
+                        routeText: viewModel.displayRoute(for: selectedTrain),
+                        onOpenRoute: {
+                            trainForStationsView = selectedTrain
+                            isTrainStationsViewPresented = true
+                        }
+                    ) {
+                        viewModel.clearSelection()
+                    }
+                    .padding(.top, 18)
+                    .padding(.horizontal, 16)
+                } else if let selectedStation {
+                    SelectedStationCard(station: selectedStation) {
+                        selectedStationID = nil
+                    }
+                    .padding(.top, 18)
+                    .padding(.horizontal, 16)
+                }
+            }
+            .overlay {
+                if isTrainListPresented {
+                    Color.black.opacity(0.001)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            dismissTrainList()
+                        }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if isTrainListPresented {
+                    trainListSheet
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 92)
+                        .offset(y: max(0, trainListDragOffset))
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
+                        .gesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    guard value.translation.height > 0 else {
+                                        trainListDragOffset = 0
+                                        return
+                                    }
+
+                                    trainListDragOffset = value.translation.height
+                                }
+                                .onEnded { value in
+                                    if value.translation.height > 120 || value.predictedEndTranslation.height > 180 {
+                                        dismissTrainList()
+                                    } else {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            trainListDragOffset = 0
+                                        }
+                                    }
+                                }
+                        )
+                        .zIndex(2)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !isTrainListPresented {
+                    HStack(spacing: 12) {
+                        currentLocationButton
+                        trainListButton
+                        mapModeButton
+                    }
+                    .padding(.bottom, 96)
+                }
+            }
+            .task {
+                await viewModel.start()
+            }
+            .refreshable {
+                await viewModel.refresh()
+            }
+            .ignoresSafeArea(edges: .bottom)
+            .navigationDestination(isPresented: $isTrainStationsViewPresented) {
+                if let trainForStationsView {
+                    TrainStationsView(trainMessage: trainForStationsView, title: "Togrute")
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var renderedStations: [TraseStation] {
+        viewModel.stationsInVisibleRegion(visibleRegion, limit: isZoomedOut ? 120 : 300)
+    }
+
+    private var renderedTrains: [TrainMessage] {
+        viewModel.trainsInVisibleRegion(visibleRegion, limit: isZoomedOut ? 250 : 150)
+    }
+
+    @MapContentBuilder
+    private var routeOverlayContent: some MapContent {
+        if viewModel.selectedTrainRouteCoordinates.count > 1 {
+            MapPolyline(coordinates: viewModel.selectedTrainRouteCoordinates)
+                .stroke(Color.white.opacity(0.8), lineWidth: 8)
+
+            MapPolyline(coordinates: viewModel.selectedTrainRouteCoordinates)
+                .stroke(Color.accentColor, lineWidth: 4)
+
+            if let routeStartCoordinate = viewModel.selectedTrainRouteCoordinates.first {
+                Annotation("Rutestart", coordinate: routeStartCoordinate) {
+                    RouteStartAnnotation()
+                }
+            }
+        }
+    }
+
+    @MapContentBuilder
+    private var currentLocationContent: some MapContent {
+        if let currentLocation = locationManager.currentLocation {
+            Annotation("Nåværende posisjon", coordinate: currentLocation.clCoordinate) {
+                CurrentLocationAnnotation()
+            }
+        }
+    }
+
+    @MapContentBuilder
+    private var stationAnnotationContent: some MapContent {
+        if showsStationMarkers {
+            ForEach(renderedStations) { station in
+                Annotation(showsStationMarkerLabels ? stationAnnotationTitle(for: station) : "", coordinate: station.coordinate) {
+                    Button {
+                        toggleSelection(for: station)
+                    } label: {
+                        if isZoomedOut {
+                            StationMapDotAnnotation()
+                        } else {
+                            StationMapAnnotation(
+                                isHighlighted: station.id == selectedStationID
+                            )
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .zIndex(1)
+                }
+            }
+        }
+    }
+
+    private func stationAnnotationTitle(for station: TraseStation) -> String {
+        [station.name, station.shortName, station.plcCode]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " • ")
+    }
+
+    @MapContentBuilder
+    private var trainAnnotationContent: some MapContent {
+        if showsTrainMarkers {
+            ForEach(renderedTrains) { train in
+                if let coordinate = viewModel.mapCoordinate(for: train) {
+                    Annotation(viewModel.displayLineNumber(for: train), coordinate: coordinate) {
+                        Button {
+                            toggleSelection(for: train)
+                        } label: {
+                            if isCountryZoomedOut {
+                                TrainMapDotAnnotation(isHighlighted: train.id == viewModel.selectedTrainMessageID)
+                            } else {
+                                TrainMapAnnotation(isHighlighted: train.id == viewModel.selectedTrainMessageID)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .zIndex(2)
+                    }
+                }
+            }
+        }
+    }
+
+    private var selectedTrain: TrainMessage? {
+        viewModel.selectedTrain
+    }
+
+    private var selectedStation: TraseStation? {
+        guard let selectedStationID else {
+            return nil
+        }
+
+        return viewModel.stations.first(where: { $0.id == selectedStationID })
+    }
+
+    private var markerTogglePanel: some View {
+        HStack(spacing: 6) {
+            markerToggle(
+                systemImage: "building.columns.fill",
+                isOn: $showsStationMarkers
+            )
+
+            markerToggle(
+                systemImage: "textformat",
+                isOn: $showsStationMarkerLabels
+            )
+            .disabled(!showsStationMarkers)
+            .opacity(showsStationMarkers ? 1 : 0.45)
+
+            markerToggle(
+                systemImage: "tram.fill",
+                isOn: $showsTrainMarkers
+            )
+
+            Spacer(minLength: 0)
+
+            connectionStatusIndicator
+        }
+    }
+
+    private var mapModeButton: some View {
+        Menu {
+            ForEach(TrainMapMode.allCases) { mode in
+                Button {
+                    mapMode = mode
+                } label: {
+                    Label(mode.title, systemImage: mode.systemImage)
+                }
+            }
+        } label: {
+            Image(systemName: mapMode.systemImage)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .frame(width: 48, height: 48)
+                .background(.thinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
+        }
+        .accessibilityLabel("Velg kartvisning")
+    }
+
+    private var connectionStatusIndicator: some View {
+        ConnectionStatusDot(state: connectionCenter.state)
+            .accessibilityLabel(connectionCenter.accessibilityStatusText)
+    }
+
+    private func markerToggle(systemImage: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            Toggle("", isOn: Binding(
+                get: { isOn.wrappedValue },
+                set: { newValue in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isOn.wrappedValue = newValue
+                    }
+                }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .tint(.accentColor)
+            .scaleEffect(0.72)
+            .frame(width: 42)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .background(.thinMaterial, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.05), radius: 5, y: 2)
+    }
+
+    private var trainListButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                isTrainListPresented.toggle()
+            }
+        } label: {
+            Image(systemName: "list.bullet")
+                .font(.headline)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 48, height: 48)
+                .background(.thinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Apne togliste")
+    }
+
+    private var currentLocationButton: some View {
+        Button {
+            locationManager.requestCurrentLocation()
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.headline)
+                .foregroundStyle(locationManager.hasLocationAccess ? Color.accentColor : .primary)
+                .frame(width: 48, height: 48)
+                .background(.thinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Gå til nåværende posisjon")
+    }
+
+    private var trainListSheet: some View {
+        TrainListSheet(
+            trains: viewModel.trainMessages,
+            displayRoute: { viewModel.displayRoute(for: $0) },
+            onSelectTrain: { train in
+                selectTrain(train)
+            },
+            onClearSelection: {
+                viewModel.clearSelection()
+            }
+        )
+    }
+
+    private func expandedRegion(for region: MKCoordinateRegion) -> MKCoordinateRegion {
+        MKCoordinateRegion(
+            center: region.center,
+            span: MKCoordinateSpan(
+                latitudeDelta: region.span.latitudeDelta * 1.2,
+                longitudeDelta: region.span.longitudeDelta * 1.2
+            )
+        )
+    }
+
+    private func selectTrain(_ train: TrainMessage) {
+        dismissTrainList()
+
+        if
+            let coordinate = viewModel.mapCoordinate(for: train),
+            !visibleRegion.contains(coordinate: coordinate)
+        {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                position = .region(
+                    MKCoordinateRegion(
+                        center: coordinate,
+                        span: visibleRegion.span
+                    )
+                )
+            }
+        }
+
+        Task {
+            await viewModel.selectTrain(train)
+        }
+    }
+
+    private func toggleSelection(for train: TrainMessage) {
+        selectedStationID = nil
+
+        if viewModel.selectedTrainMessageID == train.id {
+            viewModel.clearSelection()
+            return
+        }
+
+        selectTrain(train)
+    }
+
+    private func toggleSelection(for station: TraseStation) {
+        viewModel.clearSelection()
+
+        if selectedStationID == station.id {
+            selectedStationID = nil
+            return
+        }
+
+        selectedStationID = station.id
+    }
+
+    private func dismissTrainList() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            isTrainListPresented = false
+            trainListDragOffset = 0
+        }
+    }
+}
+
+private struct TrainListSheet: View {
+    let trains: [TrainMessage]
+    let displayRoute: (TrainMessage) -> String
+    let onSelectTrain: (TrainMessage) -> Void
+    let onClearSelection: () -> Void
+
+    @State private var searchText = ""
+
+    private var displayedTrainList: [TrainMessage] {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            return trains
+        }
+
+        return trains.filter { train in
+            trainMapViewModelSearchTokens(for: train).contains { token in
+                token.localizedCaseInsensitiveContains(trimmedQuery)
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 38, height: 5)
+                .padding(.top, 8)
+
+            searchField
+            summaryCard
+            content
+        }
+        .padding(12)
+        .frame(maxWidth: 560)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.16), radius: 20, y: 10)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+
+            TextField("Sok etter tog eller linjenummer", text: $searchText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    onClearSelection()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            Capsule()
+                .fill(Color(.systemBackground))
+        )
+        .overlay {
+            Capsule()
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if !displayedTrainList.isEmpty {
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(displayedTrainList.enumerated()), id: \.element.id) { index, train in
+                        trainListRow(train)
+
+                        if index < displayedTrainList.count - 1 {
+                            Rectangle()
+                                .fill(Color(.separator))
+                                .frame(height: 1)
+                                .padding(.leading, 56)
+                        }
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+            .frame(height: 520)
+        } else {
+            VStack {
+                Spacer()
+
+                Text("Ingen tog funnet")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 18)
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 520, alignment: .center)
+        }
+    }
+
+    private func trainListRow(_ train: TrainMessage) -> some View {
+        Button {
+            onSelectTrain(train)
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                TrainListCountryFlagBadge(countryCode: train.countryCode)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        if let lineNumber = displayLineNumber(for: train) {
+                            Text(lineNumber)
+                                .font(.subheadline.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(.primary)
+
+                            Text("•")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.primary.opacity(0.78))
+                        }
+
+                        Text(displayTrainNumber(for: train))
+                            .font(.subheadline.monospacedDigit().weight(.medium))
+                            .foregroundStyle(.primary)
+
+                        if let company = displayCompany(for: train) {
+                            Text("•")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.primary.opacity(0.78))
+
+                            Text(company)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.primary.opacity(0.78))
+                                .lineLimit(1)
+
+                            if let trainType = normalizedText(train.trainType) {
+                                Text("•")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.primary.opacity(0.78))
+
+                                Text(trainType)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.primary.opacity(0.78))
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+
+                    Text(displayRoute(train))
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var summaryCard: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Togliste")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Live oversikt over aktive tog")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("\(displayedTrainList.count)")
+                    .font(.title3.monospacedDigit().weight(.bold))
+                    .foregroundStyle(.primary)
+
+                Text("treff")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(.secondarySystemBackground), Color(.systemBackground)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
+    }
+}
+
+private extension TraseStation {
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude ?? 0, longitude: longitude ?? 0)
+    }
+
+    var displayCoordinateText: String {
+        guard let latitude, let longitude else {
+            return "Ukjent"
+        }
+
+        return String(format: "%.5f, %.5f", latitude, longitude)
+    }
+
+    var displayTimestamp: String {
+        guard let lastUpdated else {
+            return "Ukjent"
+        }
+
+        return lastUpdated.formatted(
+            .dateTime
+                .year()
+                .month(.twoDigits)
+                .day(.twoDigits)
+                .hour(.twoDigits(amPM: .omitted))
+                .minute(.twoDigits)
+                .second(.twoDigits)
+        )
+    }
+}
+
+private struct StationMapDotAnnotation: View {
+    var body: some View {
+        Circle()
+            .fill(Color(.darkGray))
+            .frame(width: 6, height: 6)
+            .overlay {
+                Circle()
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            }
+            .shadow(color: Color.black.opacity(0.18), radius: 3, y: 1)
+    }
+}
+
+private struct TrainMapDotAnnotation: View {
+    let isHighlighted: Bool
+
+    var body: some View {
+        Circle()
+            .fill(isHighlighted ? Color.orange : Color.accentColor)
+            .frame(width: isHighlighted ? 9 : 7, height: isHighlighted ? 9 : 7)
+            .overlay {
+                Circle()
+                    .stroke(Color.white.opacity(0.95), lineWidth: 2)
+            }
+            .shadow(color: Color.black.opacity(isHighlighted ? 0.24 : 0.18), radius: isHighlighted ? 4 : 3, y: 1)
+    }
+}
+
+private struct CurrentLocationAnnotation: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.accentColor.opacity(0.20))
+                .frame(width: 28, height: 28)
+
+            Circle()
+                .fill(Color.accentColor)
+                .frame(width: 14, height: 14)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white, lineWidth: 3)
+                }
+        }
+        .shadow(color: Color.accentColor.opacity(0.22), radius: 8, y: 2)
+    }
+}
+
+private struct RouteStartAnnotation: View {
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 18, height: 18)
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2)
+                    }
+
+                Image(systemName: "flag.fill")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            Text("Start")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.thinMaterial, in: Capsule())
+        }
+        .shadow(color: Color.black.opacity(0.14), radius: 6, y: 2)
+    }
+}
+
+private struct StationMapAnnotation: View {
+    let isHighlighted: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color(.darkGray))
+                .frame(width: isHighlighted ? 20 : 16, height: isHighlighted ? 20 : 16)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                }
+
+            Image(systemName: "building.columns.fill")
+                .font(isHighlighted ? .caption.bold() : .caption2.bold())
+                .foregroundStyle(.white)
+                .padding(isHighlighted ? 4 : 3)
+        }
+        .overlay(alignment: .bottom) {
+            Triangle()
+                .fill(Color.white)
+                .frame(width: isHighlighted ? 8 : 6, height: isHighlighted ? 5 : 4)
+                .offset(y: isHighlighted ? 3 : 2)
+        }
+        .shadow(color: Color.black.opacity(isHighlighted ? 0.24 : 0.18), radius: isHighlighted ? 6 : 4, y: 2)
+    }
+}
+
+private struct TrainMapAnnotation: View {
+    let isHighlighted: Bool
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(markerColor)
+                    .frame(width: isHighlighted ? 28 : 24, height: isHighlighted ? 28 : 24)
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2)
+                    }
+
+                Image(systemName: "tram.fill")
+                    .font(isHighlighted ? .caption.bold() : .caption2.bold())
+                    .foregroundStyle(.white)
+                    .padding(isHighlighted ? 5 : 4)
+            }
+            .overlay(alignment: .bottom) {
+                Triangle()
+                    .fill(Color.white)
+                    .frame(width: isHighlighted ? 10 : 8, height: isHighlighted ? 6 : 5)
+                    .offset(y: isHighlighted ? 5 : 4)
+            }
+            .shadow(color: markerColor.opacity(0.30), radius: isHighlighted ? 7 : 4, y: 2)
+        }
+    }
+
+    private var markerColor: Color {
+        isHighlighted ? .orange : .accentColor
+    }
+}
+
+private struct SelectedTrainCard: View {
+    let train: TrainMessage
+    let routeText: String
+    let onOpenRoute: () -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        TrainCountryFlagBadge(countryCode: train.countryCode)
+
+                        Text(displayLineNumber(for: train) ?? displayTrainNumber(for: train))
+                            .font(.headline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.primary)
+
+                        Text("•")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+
+                        Text(displayTrainNumber(for: train))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+
+                        Text("•")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+
+                        Text(displayCompany(for: train) ?? "Operatør mangler")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+
+                        if let trainType = normalizedText(train.trainType) {
+                            Text("•")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.secondary)
+
+                            Text(trainType)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Text(routeText)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.black.opacity(0.05), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Fjern valgt tog")
+            }
+
+            HStack(alignment: .top, spacing: 20) {
+                TrainInfoColumn(title: "Origin Time", value: displayOriginTime(for: train))
+                Spacer(minLength: 0)
+                TrainInfoColumn(title: "ServiceTime", value: displayServiceTime(for: train))
+                Spacer(minLength: 0)
+                TrainInfoColumn(title: "Koordinater", value: displayCoordinateText(for: train), alignment: .trailing)
+            }
+
+            HStack {
+                Spacer(minLength: 0)
+
+                Button("Togrute") {
+                    onOpenRoute()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: 430, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.14), radius: 18, y: 8)
+    }
+}
+
+private struct SelectedStationCard: View {
+    let station: TraseStation
+    let onClear: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        StationCountryFlagBadge(countryCode: station.countryCode)
+
+                        Text(station.name)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                    }
+
+                    Text(station.displayShortNameLine)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+
+                }
+
+                Spacer(minLength: 8)
+
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.black.opacity(0.05), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Fjern valgt stasjon")
+            }
+
+            HStack(alignment: .top, spacing: 20) {
+                if station.isBorderStation {
+                    TrainInfoColumn(title: "Type", value: "Grensestasjon")
+                }
+
+                TrainInfoColumn(title: "Sist oppdatert", value: station.displayTimestamp)
+                Spacer(minLength: 0)
+                TrainInfoColumn(title: "Koordinater", value: station.displayCoordinateText, alignment: .trailing)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: 430, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.14), radius: 18, y: 8)
+    }
+}
+
+private struct TrainCountryFlagBadge: View {
+    let countryCode: String
+
+    var body: some View {
+        Group {
+            switch countryCode.uppercased() {
+            case "NO":
+                SmallNorwayFlagBadge()
+            case "SE":
+                SmallSwedenFlagBadge()
+            default:
+                Image(systemName: "tram.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 34, height: 22)
+                    .background(Color(.tertiarySystemBackground), in: Rectangle())
+            }
+        }
+    }
+}
+
+private struct TrainListCountryFlagBadge: View {
+    let countryCode: String
+
+    var body: some View {
+        Group {
+            switch countryCode.uppercased() {
+            case "NO":
+                TrainListNorwayFlagBadge()
+            case "SE":
+                TrainListSwedenFlagBadge()
+            default:
+                Image(systemName: "tram.fill")
+                    .font(.headline)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 42, height: 28)
+                    .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
+    }
+}
+
+private struct TrainListNorwayFlagBadge: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(red: 0.73, green: 0.11, blue: 0.17))
+
+            Rectangle()
+                .fill(.white)
+                .frame(width: 7)
+                .offset(x: -7)
+
+            Rectangle()
+                .fill(.white)
+                .frame(height: 7)
+
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
+                .frame(width: 4)
+                .offset(x: -7)
+
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
+                .frame(height: 4)
+        }
+        .frame(width: 42, height: 28)
+    }
+}
+
+private struct TrainListSwedenFlagBadge: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.32, blue: 0.61))
+
+            Rectangle()
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
+                .frame(width: 6)
+                .offset(x: -7)
+
+            Rectangle()
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
+                .frame(height: 6)
+        }
+        .frame(width: 42, height: 28)
+    }
+}
+
+private struct StationCountryFlagBadge: View {
+    let countryCode: String
+
+    var body: some View {
+        Group {
+            switch countryCode.uppercased() {
+            case "NO":
+                SmallNorwayFlagBadge()
+            case "SE":
+                SmallSwedenFlagBadge()
+            default:
+                Image(systemName: "building.columns.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(.darkGray))
+                    .frame(width: 28, height: 28)
+                    .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 9))
+            }
+        }
+    }
+}
+
+private struct SmallNorwayFlagBadge: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(red: 0.73, green: 0.11, blue: 0.17))
+
+            Rectangle()
+                .fill(.white)
+                .frame(width: 5)
+                .offset(x: -5)
+
+            Rectangle()
+                .fill(.white)
+                .frame(height: 5)
+
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
+                .frame(width: 3)
+                .offset(x: -5)
+
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
+                .frame(height: 3)
+        }
+        .frame(width: 34, height: 22)
+    }
+}
+
+private struct SmallSwedenFlagBadge: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.32, blue: 0.61))
+
+            Rectangle()
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
+                .frame(width: 5)
+                .offset(x: -5)
+
+            Rectangle()
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
+                .frame(height: 5)
+        }
+        .frame(width: 34, height: 22)
+    }
+}
+
+private struct TrainInfoColumn: View {
+    let title: String
+    let value: String
+    var alignment: HorizontalAlignment = .leading
+
+    var body: some View {
+        VStack(alignment: alignment, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+
+            Text(value)
+                .font(.footnote.monospacedDigit())
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+}
+
+@MainActor
+@Observable
+private final class TrainMapLocationManager: NSObject, CLLocationManagerDelegate {
+    var currentLocation: MapCoordinate?
+    var authorizationStatus: CLAuthorizationStatus
+
+    var hasLocationAccess: Bool {
+        authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+    }
+
+    private let manager: CLLocationManager
+
+    override init() {
+        let manager = CLLocationManager()
+        self.manager = manager
+        self.authorizationStatus = manager.authorizationStatus
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+    }
+
+    func requestCurrentLocation() {
+        switch authorizationStatus {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            manager.requestLocation()
+        case .denied, .restricted:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+
+        if hasLocationAccess {
+            manager.requestLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let coordinate = locations.last?.coordinate else {
+            return
+        }
+
+        currentLocation = MapCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    }
+}
+
+private struct MapCoordinate: Equatable {
+    let latitude: Double
+    let longitude: Double
+
+    var clCoordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+private struct ConnectionStatusDot: View {
+    let state: ConnectionState
+
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 14, height: 14)
+            .overlay {
+                Circle()
+                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+            }
+            .scaleEffect(state == .connected && isPulsing ? 1.18 : 1.0)
+            .shadow(color: color.opacity(state == .connected ? 0.45 : 0.20), radius: state == .connected ? 8 : 4, y: 1)
+            .onAppear {
+                updatePulse()
+            }
+            .onChange(of: state) { _, _ in
+                updatePulse()
+            }
+    }
+
+    private var color: Color {
+        switch state {
+        case .connected:
+            return .green
+        case .connecting, .reconnecting:
+            return .orange
+        case .disconnected, .failed:
+            return .red
+        }
+    }
+
+    private func updatePulse() {
+        guard state == .connected else {
+            withAnimation(.easeOut(duration: 0.2)) {
+                isPulsing = false
+            }
+            return
+        }
+
+        isPulsing = false
+        withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+            isPulsing = true
+        }
+    }
+}
+
+private enum TrainMapMode: String, CaseIterable, Identifiable {
+    case standard
+    case traffic
+    case satellite
+    case hybrid
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard:
+            return "Standard"
+        case .traffic:
+            return "Trafikk"
+        case .satellite:
+            return "Satellitt"
+        case .hybrid:
+            return "Hybrid"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .standard:
+            return "map"
+        case .traffic:
+            return "car.fill"
+        case .satellite:
+            return "globe.americas.fill"
+        case .hybrid:
+            return "square.2.layers.3d"
+        }
+    }
+
+    var mapStyle: MapStyle {
+        switch self {
+        case .standard:
+            return .standard(elevation: .realistic)
+        case .traffic:
+            return .standard(elevation: .realistic, showsTraffic: true)
+        case .satellite:
+            return .imagery(elevation: .realistic)
+        case .hybrid:
+            return .hybrid(elevation: .realistic, showsTraffic: true)
+        }
+    }
+}
+
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private func trainMapViewModelSearchTokens(for trainMessage: TrainMessage) -> [String] {
+    [
+        displayLineNumber(for: trainMessage),
+        displayTrainNumber(for: trainMessage),
+        normalizedText(trainMessage.origin),
+        normalizedText(trainMessage.destination),
+        normalizedText(trainMessage.lineNumber),
+        normalizedText(trainMessage.trainType),
+        normalizedText(trainMessage.company),
+        normalizedText(trainMessage.countryCode)
+    ]
+    .compactMap { $0 }
+}
+
+private func displayLineNumber(for trainMessage: TrainMessage) -> String? {
+    normalizedText(trainMessage.lineNumber)
+}
+
+private func displayTrainNumber(for trainMessage: TrainMessage) -> String {
+    normalizedText(trainMessage.trainNo)
+        ?? normalizedText(trainMessage.advertisementTrainNo)
+        ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.trainNumber)
+        ?? "Tog"
+}
+
+private func displayCompany(for trainMessage: TrainMessage) -> String? {
+    normalizedText(trainMessage.company)
+        ?? normalizedText(trainMessage.trainPosition?.toc)
+        ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef)
+}
+
+private func displayOriginTime(for trainMessage: TrainMessage) -> String {
+    guard let date = trainMessage.originTime else {
+        return "Ukjent"
+    }
+
+    return date.formatted(
+        .dateTime
+            .hour(.twoDigits(amPM: .omitted))
+            .minute(.twoDigits)
+            .second(.twoDigits)
+    )
+}
+
+private func displayServiceTime(for trainMessage: TrainMessage) -> String {
+    guard let date = trainMessage.trainPosition?.geoJson.properties.serviceTime else {
+        return "Ukjent"
+    }
+
+    return date.formatted(
+        .dateTime
+            .hour(.twoDigits(amPM: .omitted))
+            .minute(.twoDigits)
+            .second(.twoDigits)
+    )
+}
+
+private func displayCoordinateText(for trainMessage: TrainMessage) -> String {
+    guard
+        let coordinates = trainMessage.trainPosition?.geoJson.geometry.coordinates,
+        coordinates.count >= 2
+    else {
+        return "Ukjent"
+    }
+
+    return String(format: "%.5f, %.5f", coordinates[1], coordinates[0])
+}
+
+private func normalizedText(_ value: String?) -> String? {
+    let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return normalized.isEmpty ? nil : normalized
+}
+private extension MKCoordinateRegion {
+    func contains(coordinate: CLLocationCoordinate2D) -> Bool {
+        let minLatitude = center.latitude - (span.latitudeDelta / 2)
+        let maxLatitude = center.latitude + (span.latitudeDelta / 2)
+        let minLongitude = center.longitude - (span.longitudeDelta / 2)
+        let maxLongitude = center.longitude + (span.longitudeDelta / 2)
+
+        return coordinate.latitude >= minLatitude
+            && coordinate.latitude <= maxLatitude
+            && coordinate.longitude >= minLongitude
+            && coordinate.longitude <= maxLongitude
+    }
+}
