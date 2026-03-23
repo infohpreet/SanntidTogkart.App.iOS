@@ -16,7 +16,7 @@ struct HomeTabView: View {
             .refreshable {
                 await viewModel.refresh()
             }
-            .navigationTitle("Sanntid Togkart")
+            .navigationTitle("Togkart")
         }
         .task {
             await viewModel.start()

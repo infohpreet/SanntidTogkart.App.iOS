@@ -435,7 +435,7 @@ private final class StationMessagesViewModel {
             return
         }
 
-        originDate = AppTime.utcDateString()
+        originDate = AppTime.localDateString()
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]

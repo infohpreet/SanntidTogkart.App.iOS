@@ -1101,8 +1101,9 @@ private let extendedFractionalDateFormatter: DateFormatter = {
 
 private let dateOnlyFormatter: DateFormatter = {
     let formatter = DateFormatter()
+    formatter.calendar = Calendar.autoupdatingCurrent
     formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.timeZone = .autoupdatingCurrent
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter
 }()

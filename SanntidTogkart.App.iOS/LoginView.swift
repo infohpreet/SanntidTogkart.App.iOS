@@ -122,7 +122,7 @@ private struct DashboardTransitionCard: View {
                 .tint(.accentColor)
 
             VStack(spacing: 6) {
-                Text("Vennligst vent ...")
+                Text("Vennligst vent...")
                     .font(.headline)
             }
         }
