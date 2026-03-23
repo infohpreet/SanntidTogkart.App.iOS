@@ -21,26 +21,12 @@ struct LoginView: View {
 
             VStack(spacing: 28) {
                 VStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 22)
-                            .fill(Color.white)
-                            .frame(width: 84, height: 84)
-                            .shadow(color: Color.black.opacity(0.08), radius: 18, y: 8)
-
-                        Image(systemName: "tram.fill")
-                            .font(.system(size: 34, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
-                    }
-
-                    VStack(spacing: 8) {
-                        Text("Sanntid Togkart")
-                            .font(.largeTitle.weight(.bold))
-
-                        Text("Logg inn med Bane NOR-kontoen din for å få tilgang til sanntidsdata.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
+                    Image("BaneNorLogo")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 180, height: 30)
+                        .foregroundStyle(.primary)
                 }
 
                 if authSession.isPreparingDashboard {
@@ -62,14 +48,14 @@ struct LoginView: View {
                         }) {
                             HStack(spacing: 10) {
                                 MicrosoftLogo()
-                                Text(authSession.isAuthenticating ? "Logger inn..." : "Bane NOR SSO")
+                                Text(authSession.isAuthenticating ? "Signing In..." : "Sign In")
                                     .font(.headline)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .foregroundStyle(Color.accentColor)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
                             )
                         }
@@ -121,11 +107,6 @@ private struct FaceIDWaitingCard: View {
             VStack(spacing: 6) {
                 Text("Venter på Face ID")
                     .font(.headline)
-
-                Text("Bekreft med Face ID for å åpne Sanntid Togkart.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity)
@@ -141,13 +122,8 @@ private struct DashboardTransitionCard: View {
                 .tint(.accentColor)
 
             VStack(spacing: 6) {
-                Text("Åpner dashboard")
+                Text("Vennligst vent ...")
                     .font(.headline)
-
-                Text("Logger deg inn og gjør Sanntid Togkart klart.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity)
@@ -168,6 +144,5 @@ private struct MicrosoftLogo: View {
             }
         }
         .frame(width: 18, height: 18)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
