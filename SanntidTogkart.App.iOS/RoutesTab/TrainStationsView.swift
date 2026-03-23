@@ -344,7 +344,7 @@ struct TrainStationsView: View {
             return false
         }
 
-        return referenceDate < Date()
+        return referenceDate < AppTime.now
     }
 
     private func normalizedText(_ value: String?) -> String? {

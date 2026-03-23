@@ -10,6 +10,7 @@ final class TrainMapTabViewModel {
     var trainMessages: [TrainMessage] = []
     var selectedTrainMessageID: Int?
     var selectedTrainRouteCoordinates: [CLLocationCoordinate2D] = []
+    var selectedTrainFutureRouteCoordinates: [CLLocationCoordinate2D] = []
     var errorMessage: String?
     var isLoading = false
 
@@ -19,6 +20,8 @@ final class TrainMapTabViewModel {
 
     private let service: SignalRService
     private var hasStarted = false
+    private var selectedTrainStations: [StationMessage] = []
+    private var selectedTrainRouteRequest: SelectedTrainRouteRequest?
 
     init() {
         self.service = SignalRService()
@@ -60,15 +63,14 @@ final class TrainMapTabViewModel {
                     self.displayLineNumber(for: lhs).localizedStandardCompare(self.displayLineNumber(for: rhs)) == .orderedAscending
                 }
 
-            withAnimation(.easeInOut(duration: 0.35)) {
-                self.trainMessages = activeTrainMessages
-            }
+            self.trainMessages = activeTrainMessages
 
             if let selectedTrainMessageID = self.selectedTrainMessageID,
                !activeTrainMessages.contains(where: { $0.id == selectedTrainMessageID }) {
                 self.clearSelection()
             } else {
                 self.updateSelectedTrainRouteWithLatestPosition()
+                self.rebuildSelectedTrainFutureRoute()
             }
 
             self.errorMessage = nil
@@ -86,6 +88,19 @@ final class TrainMapTabViewModel {
                 .compactMap(self.coordinate(for:))
 
             self.selectedTrainRouteCoordinates = routeCoordinates.removingSequentialDuplicates()
+        }
+
+        service.onTrainStations = { [weak self] stationMessages in
+            guard let self else {
+                return
+            }
+
+            guard self.matchesSelectedTrainRouteRequest(stationMessages) else {
+                return
+            }
+
+            self.selectedTrainStations = stationMessages
+            self.rebuildSelectedTrainFutureRoute()
         }
 
         service.onError = { [weak self] message in
@@ -163,6 +178,8 @@ final class TrainMapTabViewModel {
     func selectTrain(_ trainMessage: TrainMessage) async {
         selectedTrainMessageID = trainMessage.id
         selectedTrainRouteCoordinates = []
+        selectedTrainFutureRouteCoordinates = []
+        selectedTrainStations = []
 
         guard
             let countryCode = normalizedText(trainMessage.countryCode),
@@ -172,7 +189,21 @@ final class TrainMapTabViewModel {
             return
         }
 
+        selectedTrainRouteRequest = SelectedTrainRouteRequest(
+            trainMessageID: trainMessage.id,
+            countryCode: countryCode,
+            trainNumber: trainNumber,
+            advertisementTrainNo: normalizedText(trainMessage.advertisementTrainNo),
+            originDate: originDate
+        )
+
         await service.requestTrainPositionsList(
+            countryCode: countryCode,
+            trainNumber: trainNumber,
+            originDate: originDate
+        )
+
+        await service.requestTrainStations(
             countryCode: countryCode,
             trainNumber: trainNumber,
             originDate: originDate
@@ -182,6 +213,9 @@ final class TrainMapTabViewModel {
     func clearSelection() {
         selectedTrainMessageID = nil
         selectedTrainRouteCoordinates = []
+        selectedTrainFutureRouteCoordinates = []
+        selectedTrainStations = []
+        selectedTrainRouteRequest = nil
     }
 
     func mapCoordinate(for trainMessage: TrainMessage) -> CLLocationCoordinate2D? {
@@ -225,15 +259,35 @@ final class TrainMapTabViewModel {
     }
 
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
-        [
+        let originCode = normalizedText(trainMessage.origin)
+        let destinationCode = normalizedText(trainMessage.destination)
+        let enrichedOrigin = displayStationText(for: trainMessage.origin, countryCode: trainMessage.countryCode)
+        let enrichedDestination = displayStationText(for: trainMessage.destination, countryCode: trainMessage.countryCode)
+        let routeText = displayRoute(for: trainMessage)
+        let originTimeText = trainMessage.originTime.map {
+            $0.formatted(date: .omitted, time: .shortened)
+        }
+
+        return [
             displayLineNumber(for: trainMessage),
             displayTrainNumber(for: trainMessage),
-            trainMessage.origin,
-            trainMessage.destination,
-            trainMessage.lineNumber,
-            trainMessage.trainType,
-            trainMessage.company,
-            trainMessage.countryCode
+            normalizedText(trainMessage.advertisementTrainNo),
+            normalizedText(trainMessage.trainNo),
+            normalizedText(trainMessage.messageKey),
+            normalizedText(trainMessage.originDate),
+            originTimeText,
+            originCode,
+            destinationCode,
+            enrichedOrigin,
+            enrichedDestination,
+            routeText,
+            normalizedText(trainMessage.lineNumber),
+            normalizedText(trainMessage.trainType),
+            normalizedText(trainMessage.company),
+            normalizedText(trainMessage.countryCode),
+            normalizedText(trainMessage.trainPosition?.toc),
+            normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef),
+            normalizedText(trainMessage.trainPosition?.geoJson.properties.trainNumber)
         ]
         .compactMap { normalizedText($0) }
     }
@@ -251,21 +305,36 @@ final class TrainMapTabViewModel {
             return
         }
 
-        if selectedTrainRouteCoordinates.count == 1 {
-            if !selectedTrainRouteCoordinates[0].isApproximatelyEqual(to: latestCoordinate) {
-                selectedTrainRouteCoordinates.append(latestCoordinate)
-            }
+        if selectedTrainRouteCoordinates.last?.isApproximatelyEqual(to: latestCoordinate) != true {
+            selectedTrainRouteCoordinates.append(latestCoordinate)
+        }
+    }
+
+    private func rebuildSelectedTrainFutureRoute() {
+        guard let selectedTrain else {
+            selectedTrainFutureRouteCoordinates = []
             return
         }
 
-        if selectedTrainRouteCoordinates[selectedTrainRouteCoordinates.count - 2].isApproximatelyEqual(to: latestCoordinate) {
-            selectedTrainRouteCoordinates.removeLast()
-            return
+        var coordinates: [CLLocationCoordinate2D] = []
+        if let currentCoordinate = mapCoordinate(for: selectedTrain) {
+            coordinates.append(currentCoordinate)
         }
 
-        if !selectedTrainRouteCoordinates.last!.isApproximatelyEqual(to: latestCoordinate) {
-            selectedTrainRouteCoordinates[selectedTrainRouteCoordinates.count - 1] = latestCoordinate
+        let futureCoordinates = selectedTrainStations
+            .filter { !$0.shouldSkipForFutureRoute }
+            .compactMap { coordinateForStation(named: $0.city, countryCode: $0.countryCode) }
+
+        for coordinate in futureCoordinates {
+            appendCoordinate(coordinate, to: &coordinates)
         }
+
+        if let destination = normalizedText(selectedTrain.destination),
+           let destinationCoordinate = coordinateForStation(named: destination, countryCode: selectedTrain.countryCode) {
+            appendCoordinate(destinationCoordinate, to: &coordinates)
+        }
+
+        selectedTrainFutureRouteCoordinates = coordinates.count > 1 ? coordinates : []
     }
 
     private func coordinate(for trainPosition: TrainPosition?) -> CLLocationCoordinate2D? {
@@ -280,6 +349,31 @@ final class TrainMapTabViewModel {
             latitude: trainPosition.geoJson.geometry.coordinates[1],
             longitude: trainPosition.geoJson.geometry.coordinates[0]
         )
+    }
+
+    private func coordinateForStation(named rawValue: String, countryCode: String) -> CLLocationCoordinate2D? {
+        let normalizedValue = normalizedText(rawValue)
+
+        guard let normalizedValue else {
+            return nil
+        }
+
+        guard let station = stations.first(where: { station in
+            station.countryCode.localizedCaseInsensitiveCompare(countryCode) == .orderedSame
+                && (
+                    station.shortName.localizedCaseInsensitiveCompare(normalizedValue) == .orderedSame
+                        || station.name.localizedCaseInsensitiveCompare(normalizedValue) == .orderedSame
+                        || (station.plcCode?.localizedCaseInsensitiveCompare(normalizedValue) == .orderedSame)
+                )
+        }) else {
+            return nil
+        }
+
+        guard let latitude = station.latitude, let longitude = station.longitude else {
+            return nil
+        }
+
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
     private func routeTrainNumber(for trainMessage: TrainMessage) -> String? {
@@ -298,12 +392,43 @@ final class TrainMapTabViewModel {
             return false
         }
 
-        return serviceTime >= Date().addingTimeInterval(-activeTrainTimeout)
+        return serviceTime >= AppTime.now.addingTimeInterval(-activeTrainTimeout)
     }
 
     private func normalizedText(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func appendCoordinate(_ coordinate: CLLocationCoordinate2D, to coordinates: inout [CLLocationCoordinate2D]) {
+        guard coordinates.last?.isApproximatelyEqual(to: coordinate) != true else {
+            return
+        }
+
+        coordinates.append(coordinate)
+    }
+
+    private func matchesSelectedTrainRouteRequest(_ stationMessages: [StationMessage]) -> Bool {
+        guard let selectedTrainRouteRequest else {
+            return false
+        }
+
+        guard let firstStationMessage = stationMessages.first else {
+            return selectedTrainMessageID == selectedTrainRouteRequest.trainMessageID
+        }
+
+        guard
+            firstStationMessage.countryCode.localizedCaseInsensitiveCompare(selectedTrainRouteRequest.countryCode) == .orderedSame,
+            firstStationMessage.originDate == selectedTrainRouteRequest.originDate
+        else {
+            return false
+        }
+
+        let returnedTrainNo = firstStationMessage.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestedTrainNo = selectedTrainRouteRequest.trainNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        let advertisementTrainNo = selectedTrainRouteRequest.advertisementTrainNo?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return returnedTrainNo == requestedTrainNo || (!advertisementTrainNo.isEmpty && returnedTrainNo == advertisementTrainNo)
     }
 
     private func displayStationText(for rawValue: String?, countryCode: String) -> String? {
@@ -361,6 +486,32 @@ private extension CLLocationCoordinate2D {
     func isApproximatelyEqual(to other: CLLocationCoordinate2D) -> Bool {
         abs(latitude - other.latitude) < 0.00001 && abs(longitude - other.longitude) < 0.00001
     }
+}
+
+private extension StationMessage {
+    var shouldSkipForFutureRoute: Bool {
+        if ata != nil || atd != nil {
+            return true
+        }
+
+        guard let relevantTimestamp = prioritizedRouteTimestamp else {
+            return false
+        }
+
+        return relevantTimestamp < AppTime.now
+    }
+
+    var prioritizedRouteTimestamp: Date? {
+        eta ?? etd ?? sta ?? std
+    }
+}
+
+private struct SelectedTrainRouteRequest {
+    let trainMessageID: Int
+    let countryCode: String
+    let trainNumber: String
+    let advertisementTrainNo: String?
+    let originDate: String
 }
 
 private let activeTrainTimeout: TimeInterval = 5 * 60

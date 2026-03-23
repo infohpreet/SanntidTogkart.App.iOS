@@ -202,6 +202,14 @@ struct TrainMapTabView: View {
                 }
             }
         }
+
+        if viewModel.selectedTrainFutureRouteCoordinates.count > 1 {
+            MapPolyline(coordinates: viewModel.selectedTrainFutureRouteCoordinates)
+                .stroke(
+                    Color.accentColor,
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [1, 3])
+                )
+        }
     }
 
     @MapContentBuilder
@@ -406,6 +414,7 @@ struct TrainMapTabView: View {
         TrainListSheet(
             trains: viewModel.trainMessages,
             displayRoute: { viewModel.displayRoute(for: $0) },
+            searchTokens: { viewModel.searchTokens(for: $0) },
             onSelectTrain: { train in
                 selectTrain(train)
             },
@@ -480,23 +489,13 @@ struct TrainMapTabView: View {
 private struct TrainListSheet: View {
     let trains: [TrainMessage]
     let displayRoute: (TrainMessage) -> String
+    let searchTokens: (TrainMessage) -> [String]
     let onSelectTrain: (TrainMessage) -> Void
     let onClearSelection: () -> Void
 
     @State private var searchText = ""
-
-    private var displayedTrainList: [TrainMessage] {
-        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else {
-            return trains
-        }
-
-        return trains.filter { train in
-            trainMapViewModelSearchTokens(for: train).contains { token in
-                token.localizedCaseInsensitiveContains(trimmedQuery)
-            }
-        }
-    }
+    @State private var indexedTrains: [TrainListEntry] = []
+    @State private var displayedTrainList: [TrainListEntry] = []
 
     var body: some View {
         VStack(spacing: 6) {
@@ -517,6 +516,12 @@ private struct TrainListSheet: View {
                 .stroke(Color.white.opacity(0.45), lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.16), radius: 20, y: 10)
+        .task(id: trainListFingerprint) {
+            rebuildSearchIndex()
+        }
+        .onChange(of: searchText) { _, _ in
+            applySearch()
+        }
     }
 
     private var searchField: some View {
@@ -556,8 +561,8 @@ private struct TrainListSheet: View {
         if !displayedTrainList.isEmpty {
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(Array(displayedTrainList.enumerated()), id: \.element.id) { index, train in
-                        trainListRow(train)
+                    ForEach(Array(displayedTrainList.enumerated()), id: \.element.id) { index, entry in
+                        trainListRow(entry)
 
                         if index < displayedTrainList.count - 1 {
                             Rectangle()
@@ -588,8 +593,10 @@ private struct TrainListSheet: View {
         }
     }
 
-    private func trainListRow(_ train: TrainMessage) -> some View {
-        Button {
+    private func trainListRow(_ entry: TrainListEntry) -> some View {
+        let train = entry.train
+
+        return Button {
             onSelectTrain(train)
         } label: {
             HStack(alignment: .center, spacing: 12) {
@@ -636,7 +643,7 @@ private struct TrainListSheet: View {
                         Spacer(minLength: 0)
                     }
 
-                    Text(displayRoute(train))
+                    Text(entry.routeText)
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -695,6 +702,46 @@ private struct TrainListSheet: View {
         }
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
     }
+
+    private var trainListFingerprint: String {
+        trains.map { train in
+            "\(train.id)-\(train.lastUpdatedAt.timeIntervalSinceReferenceDate)"
+        }
+        .joined(separator: "|")
+    }
+
+    private func rebuildSearchIndex() {
+        indexedTrains = trains.map { train in
+            TrainListEntry(
+                train: train,
+                routeText: displayRoute(train),
+                searchTokens: searchTokens(train)
+            )
+        }
+        applySearch()
+    }
+
+    private func applySearch() {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            displayedTrainList = indexedTrains
+            return
+        }
+
+        displayedTrainList = indexedTrains.filter { entry in
+            entry.searchTokens.contains { token in
+                token.localizedCaseInsensitiveContains(trimmedQuery)
+            }
+        }
+    }
+}
+
+private struct TrainListEntry: Identifiable {
+    let train: TrainMessage
+    let routeText: String
+    let searchTokens: [String]
+
+    var id: Int { train.id }
 }
 
 private extension TraseStation {
@@ -1375,20 +1422,6 @@ private struct Triangle: Shape {
         path.closeSubpath()
         return path
     }
-}
-
-private func trainMapViewModelSearchTokens(for trainMessage: TrainMessage) -> [String] {
-    [
-        displayLineNumber(for: trainMessage),
-        displayTrainNumber(for: trainMessage),
-        normalizedText(trainMessage.origin),
-        normalizedText(trainMessage.destination),
-        normalizedText(trainMessage.lineNumber),
-        normalizedText(trainMessage.trainType),
-        normalizedText(trainMessage.company),
-        normalizedText(trainMessage.countryCode)
-    ]
-    .compactMap { $0 }
 }
 
 private func displayLineNumber(for trainMessage: TrainMessage) -> String? {

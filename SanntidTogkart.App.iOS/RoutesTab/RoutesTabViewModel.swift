@@ -70,14 +70,14 @@ final class RoutesTabViewModel {
         isLoading = true
         await service.start()
         requestStationsIfNeeded(forceRefresh: false)
-        await service.requestTrainMessages(filter: "", originDate: Date())
+        await service.requestTrainMessages(filter: "", originDate: AppTime.now)
     }
 
     func refresh() async {
         isLoading = true
         errorMessage = nil
         requestStationsIfNeeded(forceRefresh: true)
-        await service.requestTrainMessages(filter: "", originDate: Date(), forceRefresh: true)
+        await service.requestTrainMessages(filter: "", originDate: AppTime.now, forceRefresh: true)
     }
 
     func updateSearchText(_ text: String) {

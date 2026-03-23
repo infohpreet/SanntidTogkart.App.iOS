@@ -255,7 +255,7 @@ struct StationMessagesView: View {
             return false
         }
 
-        return referenceDate < Date()
+        return referenceDate < AppTime.now
     }
 
     private func normalizedText(_ value: String?) -> String? {
@@ -435,7 +435,7 @@ private final class StationMessagesViewModel {
             return
         }
 
-        originDate = Self.originDateFormatter.string(from: Date())
+        originDate = AppTime.utcDateString()
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]
@@ -495,12 +495,4 @@ private final class StationMessagesViewModel {
         return normalized.isEmpty ? nil : normalized
     }
 
-    private static let originDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .iso8601)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
 }

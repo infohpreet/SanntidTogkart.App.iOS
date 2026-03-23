@@ -1040,7 +1040,7 @@ final class SignalRService {
         }
 
         if activeServices.contains(where: { $0.service?.onTrainMessages != nil }) {
-            pendingRequests.append(.trainMessages("", Date()))
+            pendingRequests.append(.trainMessages("", AppTime.now))
         }
     }
 }
