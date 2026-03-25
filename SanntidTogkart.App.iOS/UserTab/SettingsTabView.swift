@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-struct UserTabView: View {
+struct SettingsTabView: View {
     let user: EntraIDUser
     @Bindable var authSession: AuthSession
     let onLogout: () -> Void
@@ -20,7 +20,8 @@ struct UserTabView: View {
                 }
                 .padding(20)
             }
-            .navigationTitle("Meg")
+            .background(AppTheme.background.ignoresSafeArea())
+            .navigationTitle("Innstillinger")
         }
     }
 
@@ -61,7 +62,7 @@ struct UserTabView: View {
         .padding(.vertical, 28)
         .background(
             LinearGradient(
-                colors: [Color.accentColor.opacity(0.15), Color(.secondarySystemBackground)],
+                colors: [Color.accentColor.opacity(0.15), AppTheme.surface],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -79,7 +80,7 @@ struct UserTabView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var environmentCard: some View {
@@ -123,7 +124,7 @@ struct UserTabView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var securityCard: some View {
@@ -159,7 +160,7 @@ struct UserTabView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var actionCard: some View {
@@ -180,7 +181,7 @@ struct UserTabView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func infoRow(title: String, value: String) -> some View {

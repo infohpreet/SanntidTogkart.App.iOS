@@ -548,7 +548,7 @@ private struct TrainListSheet: View {
         .padding(.vertical, 12)
         .background(
             Capsule()
-                .fill(Color(.systemBackground))
+                .fill(AppTheme.background)
         )
         .overlay {
             Capsule()
@@ -560,13 +560,13 @@ private struct TrainListSheet: View {
     private var content: some View {
         if !displayedTrainList.isEmpty {
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(Array(displayedTrainList.enumerated()), id: \.element.id) { index, entry in
                         trainListRow(entry)
 
                         if index < displayedTrainList.count - 1 {
                             Rectangle()
-                                .fill(Color(.separator))
+                                .fill(AppTheme.border)
                                 .frame(height: 1)
                                 .padding(.leading, 56)
                         }
@@ -690,7 +690,7 @@ private struct TrainListSheet: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(
                     LinearGradient(
-                        colors: [Color(.secondarySystemBackground), Color(.systemBackground)],
+                        colors: [AppTheme.surface, AppTheme.background],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -698,14 +698,14 @@ private struct TrainListSheet: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(AppTheme.border, lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
     }
 
     private var trainListFingerprint: String {
         trains.map { train in
-            "\(train.id)-\(train.lastUpdatedAt.timeIntervalSinceReferenceDate)"
+            "\(train.id)"
         }
         .joined(separator: "|")
     }
@@ -1089,7 +1089,7 @@ private struct TrainCountryFlagBadge: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 34, height: 22)
-                    .background(Color(.tertiarySystemBackground), in: Rectangle())
+                    .background(AppTheme.elevatedSurface, in: Rectangle())
             }
         }
     }
@@ -1110,7 +1110,7 @@ private struct TrainListCountryFlagBadge: View {
                     .font(.headline)
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 42, height: 28)
-                    .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
@@ -1178,7 +1178,7 @@ private struct StationCountryFlagBadge: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color(.darkGray))
                     .frame(width: 28, height: 28)
-                    .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 9))
+                    .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 9))
             }
         }
     }

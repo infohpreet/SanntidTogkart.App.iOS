@@ -40,8 +40,8 @@ struct StationMessagesView: View {
                 }
             }
         }
+        .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle(station.name)
-        .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.start(for: station)
         }
@@ -71,10 +71,10 @@ struct StationMessagesView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(AppTheme.border, lineWidth: 1)
         }
     }
 
@@ -159,7 +159,9 @@ struct StationMessagesView: View {
                 }
             }
 
-            Divider()
+            Rectangle()
+                .fill(AppTheme.border)
+                .frame(height: 1)
 
             HStack(spacing: 18) {
                 infoColumn(title: "Planlagt", value: scheduledTime(for: stationMessage))
@@ -174,10 +176,10 @@ struct StationMessagesView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(AppTheme.border, lineWidth: 1)
         }
         .opacity(isPast ? 0.72 : 1)
     }
@@ -206,7 +208,7 @@ struct StationMessagesView: View {
                 .font(.headline)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 42, height: 28)
-                .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 12))
         }
     }
 

@@ -24,7 +24,7 @@ struct DashboardView: View {
                             .frame(width: 7, height: 7)
                             .overlay {
                                 Circle()
-                                    .stroke(Color(.systemBackground), lineWidth: 1.5)
+                                    .stroke(AppTheme.background, lineWidth: 1.5)
                             }
                             .offset(x: 6, y: -2)
                     }
@@ -43,9 +43,9 @@ struct DashboardView: View {
                 Label("Stasjoner", systemImage: "building.columns.fill")
             }
 
-            UserTabView(user: user, authSession: authSession, onLogout: onLogout)
+            SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)
             .tabItem {
-                Label("Meg", systemImage: "person.fill")
+                Label("Innstillinger", systemImage: "gearshape.fill")
             }
         }
     }

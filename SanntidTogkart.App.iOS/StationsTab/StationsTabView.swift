@@ -41,7 +41,9 @@ struct StationsTabView: View {
                                 .buttonStyle(.plain)
 
                                 if index < viewModel.filteredStations.count - 1 {
-                                    Divider()
+                                    Rectangle()
+                                        .fill(AppTheme.border)
+                                        .frame(height: 1)
                                         .padding(.leading, 56)
                                 }
                             }
@@ -55,6 +57,7 @@ struct StationsTabView: View {
                     }
                 }
             }
+            .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Stasjoner")
             .searchable(text: $searchText, prompt: "Søk etter stasjon")
         }
@@ -97,7 +100,7 @@ struct StationsTabView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(
                     LinearGradient(
-                        colors: [Color(.secondarySystemBackground), Color(.systemBackground)],
+                        colors: [AppTheme.surface, AppTheme.background],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -105,7 +108,7 @@ struct StationsTabView: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(AppTheme.border, lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
     }
@@ -169,7 +172,7 @@ struct StationsTabView: View {
                     .font(.headline)
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 42, height: 28)
-                    .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }

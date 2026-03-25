@@ -10,9 +10,9 @@ struct LoginView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(.systemBackground),
+                    AppTheme.background,
                     Color.accentColor.opacity(0.08),
-                    Color(.secondarySystemBackground)
+                    AppTheme.surface
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing

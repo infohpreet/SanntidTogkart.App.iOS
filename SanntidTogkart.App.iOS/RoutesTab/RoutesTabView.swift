@@ -53,6 +53,7 @@ struct RoutesTabView: View {
                     }
                 }
             }
+            .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Ruter")
             .searchable(text: $searchText, prompt: "Søk etter tog eller rute")
         }
@@ -95,7 +96,7 @@ struct RoutesTabView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(
                     LinearGradient(
-                        colors: [Color(.secondarySystemBackground), Color(.systemBackground)],
+                        colors: [AppTheme.surface, AppTheme.background],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -103,7 +104,7 @@ struct RoutesTabView: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(AppTheme.border, lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
     }
@@ -123,7 +124,7 @@ struct RoutesTabView: View {
                     if let originTimeText = message.originTimeText {
                         Text(originTimeText)
                             .font(.subheadline.bold().monospacedDigit())
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.primary)
                     }
                 }
 
@@ -170,7 +171,7 @@ struct RoutesTabView: View {
         .overlay(alignment: .bottomLeading) {
             if showsSeparator {
                 Rectangle()
-                    .fill(Color(.separator))
+                    .fill(AppTheme.border)
                     .frame(height: 1)
                     .padding(.leading, 56)
             }
@@ -189,7 +190,7 @@ struct RoutesTabView: View {
                 .font(.headline)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 42, height: 28)
-                .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 12))
         }
     }
 }
