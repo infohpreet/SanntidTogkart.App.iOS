@@ -16,6 +16,7 @@ struct TrainMapTabView: View {
     @State private var showsStationMarkerLabels = true
     @State private var showsTrainMarkers = true
     @State private var selectedStationID: UUID?
+    @State private var isSelectedTrainCardVisible = true
     @State private var trainListDragOffset: CGFloat = 0
     @State private var statsDragOffset: CGFloat = 0
     @State private var mapMode: TrainMapMode = .standard
@@ -92,7 +93,7 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay(alignment: .top) {
-                if let selectedTrain {
+                if let selectedTrain, isSelectedTrainCardVisible {
                     SelectedTrainCard(
                         train: selectedTrain,
                         routeText: viewModel.displayRoute(for: selectedTrain),
@@ -101,7 +102,7 @@ struct TrainMapTabView: View {
                             isTrainStationsViewPresented = true
                         }
                     ) {
-                        viewModel.clearSelection()
+                        isSelectedTrainCardVisible = false
                     }
                     .padding(.top, 18)
                     .padding(.horizontal, 16)
@@ -510,6 +511,7 @@ struct TrainMapTabView: View {
 
     private func selectTrain(_ train: TrainMessage) {
         dismissTrainList()
+        isSelectedTrainCardVisible = true
 
         if
             let coordinate = viewModel.mapCoordinate(for: train),
@@ -534,6 +536,7 @@ struct TrainMapTabView: View {
         selectedStationID = nil
 
         if viewModel.selectedTrainMessageID == train.id {
+            isSelectedTrainCardVisible = false
             viewModel.clearSelection()
             return
         }
@@ -542,6 +545,7 @@ struct TrainMapTabView: View {
     }
 
     private func toggleSelection(for station: TraseStation) {
+        isSelectedTrainCardVisible = false
         viewModel.clearSelection()
 
         if selectedStationID == station.id {
