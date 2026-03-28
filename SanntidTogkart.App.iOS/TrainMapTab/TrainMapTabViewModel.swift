@@ -8,11 +8,47 @@ import SwiftUI
 final class TrainMapTabViewModel {
     var stations: [TraseStation] = []
     var trainMessages: [TrainMessage] = []
+    var metrics: TrainMetrics?
     var selectedTrainMessageID: Int?
     var selectedTrainRouteCoordinates: [CLLocationCoordinate2D] = []
     var selectedTrainFutureRouteCoordinates: [CLLocationCoordinate2D] = []
     var errorMessage: String?
     var isLoading = false
+
+    var totalLiveTrainCount: Int {
+        liveTrainMessages.count
+    }
+
+    var operatorCounts: [OperatorTrainCount] {
+        Dictionary(grouping: liveTrainMessages) { trainMessage in
+            let normalizedCompany = displayCompanyValue(for: trainMessage) ?? "Operatør mangler"
+            return normalizedCompany
+        }
+        .map { OperatorTrainCount(name: $0.key, count: $0.value.count) }
+        .sorted { lhs, rhs in
+            if lhs.count == rhs.count {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+
+            return lhs.count > rhs.count
+        }
+    }
+
+    var trainTypeCounts: [OperatorTrainCount] {
+        Dictionary(grouping: liveTrainMessages) { trainMessage in
+            let trainType = normalizedText(trainMessage.trainType) ?? ""
+            return trainType
+        }
+        .filter { !$0.key.isEmpty }
+        .map { OperatorTrainCount(name: $0.key, count: $0.value.count) }
+        .sorted { lhs, rhs in
+            if lhs.count == rhs.count {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+
+            return lhs.count > rhs.count
+        }
+    }
 
     var mappableStations: [TraseStation] {
         stations.filter { $0.latitude != nil && $0.longitude != nil }
@@ -20,6 +56,7 @@ final class TrainMapTabViewModel {
 
     private let service: SignalRService
     private var hasStarted = false
+    private var liveTrainMessages: [TrainMessage] = []
     private var selectedTrainStations: [StationMessage] = []
     private var selectedTrainRouteRequest: SelectedTrainRouteRequest?
 
@@ -42,6 +79,16 @@ final class TrainMapTabViewModel {
     }
 
     private func configureBindings() {
+        service.onMetrics = { [weak self] metrics in
+            guard let self else {
+                return
+            }
+
+            self.metrics = metrics
+            self.errorMessage = nil
+            self.isLoading = false
+        }
+
         service.onStations = { [weak self] stations in
             guard let self else {
                 return
@@ -56,6 +103,10 @@ final class TrainMapTabViewModel {
             guard let self else {
                 return
             }
+
+            let activeLiveTrainMessages = trainMessages
+                .filter { self.isActiveTrainMessage($0) }
+            self.liveTrainMessages = activeLiveTrainMessages
 
             let activeTrainMessages = trainMessages
                 .filter { self.isActiveTrainMessage($0) && self.mapCoordinate(for: $0) != nil }
@@ -122,12 +173,14 @@ final class TrainMapTabViewModel {
         isLoading = true
         await service.start()
         await service.requestStations()
+        await service.requestTrainMetrics()
     }
 
     func refresh() async {
         isLoading = true
         errorMessage = nil
         await service.requestStations(forceRefresh: true)
+        await service.requestTrainMetrics()
     }
 
     func stop() {
@@ -244,9 +297,7 @@ final class TrainMapTabViewModel {
     }
 
     func displayCompany(for trainMessage: TrainMessage) -> String {
-        normalizedText(trainMessage.company)
-            ?? normalizedText(trainMessage.trainPosition?.toc)
-            ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef)
+        displayCompanyValue(for: trainMessage)
             ?? "Operatør mangler"
     }
 
@@ -398,6 +449,12 @@ final class TrainMapTabViewModel {
     private func normalizedText(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func displayCompanyValue(for trainMessage: TrainMessage) -> String? {
+        normalizedText(trainMessage.company)
+            ?? normalizedText(trainMessage.trainPosition?.toc)
+            ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef)
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D, to coordinates: inout [CLLocationCoordinate2D]) {

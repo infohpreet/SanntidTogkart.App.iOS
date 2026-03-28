@@ -8,11 +8,6 @@ struct DashboardView: View {
 
     var body: some View {
         TabView {
-            HomeTabView()
-            .tabItem {
-                Label("Hjem", systemImage: "house")
-            }
-
             TrainMapTabView()
             .tabItem {
                 VStack(spacing: 2) {
@@ -31,6 +26,11 @@ struct DashboardView: View {
 
                     Text("Kart")
                 }
+            }
+
+            FavoriteTabView()
+            .tabItem {
+                Label("Favoritter", systemImage: "star.fill")
             }
 
             RoutesTabView()

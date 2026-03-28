@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 @Observable
-final class HomeTabViewModel {
+final class FavoriteTabViewModel {
     var metrics: TrainMetrics?
     var errorMessage: String?
     var isLoading = false

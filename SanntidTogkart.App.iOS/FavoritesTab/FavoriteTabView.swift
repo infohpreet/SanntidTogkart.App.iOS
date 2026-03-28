@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct HomeTabView: View {
+struct FavoriteTabView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -11,7 +11,7 @@ struct HomeTabView: View {
                 .padding(20)
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("Hjem")
+            .navigationTitle("Favoritter")
         }
     }
 

@@ -10,11 +10,14 @@ struct TrainMapTabView: View {
     @State private var isZoomedOut = false
     @State private var isCountryZoomedOut = false
     @State private var isTrainListPresented = false
+    @State private var isStatsPresented = false
+    @State private var hasAutoPresentedStats = false
     @State private var showsStationMarkers = true
     @State private var showsStationMarkerLabels = true
     @State private var showsTrainMarkers = true
     @State private var selectedStationID: UUID?
     @State private var trainListDragOffset: CGFloat = 0
+    @State private var statsDragOffset: CGFloat = 0
     @State private var mapMode: TrainMapMode = .standard
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
@@ -111,12 +114,17 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay {
-                if isTrainListPresented {
+                if isTrainListPresented || isStatsPresented {
                     Color.black.opacity(0.001)
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            dismissTrainList()
+                            if isTrainListPresented {
+                                dismissTrainList()
+                            }
+                            if isStatsPresented {
+                                dismissStats()
+                            }
                         }
                 }
             }
@@ -154,17 +162,61 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if !isTrainListPresented {
+                if isStatsPresented && !isTrainListPresented {
+                    mapStatisticsPanel
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 92)
+                        .offset(y: max(0, statsDragOffset))
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
+                        .gesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    guard value.translation.height > 0 else {
+                                        statsDragOffset = 0
+                                        return
+                                    }
+
+                                    statsDragOffset = value.translation.height
+                                }
+                                .onEnded { value in
+                                    if value.translation.height > 120 || value.predictedEndTranslation.height > 180 {
+                                        dismissStats()
+                                    } else {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            statsDragOffset = 0
+                                        }
+                                    }
+                                }
+                        )
+                        .zIndex(2)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !isTrainListPresented && !isStatsPresented {
                     HStack(spacing: 12) {
                         currentLocationButton
-                        trainListButton
                         mapModeButton
+                        statsButton
+                        trainListButton
                     }
                     .padding(.bottom, 96)
                 }
             }
             .task {
                 await viewModel.start()
+            }
+            .onAppear {
+                guard !hasAutoPresentedStats else {
+                    return
+                }
+
+                hasAutoPresentedStats = true
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    isStatsPresented = true
+                }
             }
             .refreshable {
                 await viewModel.refresh()
@@ -335,6 +387,28 @@ struct TrainMapTabView: View {
         .accessibilityLabel("Velg kartvisning")
     }
 
+    private var statsButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                isStatsPresented.toggle()
+                statsDragOffset = 0
+            }
+        } label: {
+            Image(systemName: isStatsPresented ? "chart.bar.xaxis.circle.fill" : "chart.bar.xaxis")
+                .font(.headline)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 48, height: 48)
+                .background(.thinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Vis statistikk")
+    }
+
     private var connectionStatusIndicator: some View {
         ConnectionStatusDot(state: connectionCenter.state)
             .accessibilityLabel(connectionCenter.accessibilityStatusText)
@@ -482,6 +556,216 @@ struct TrainMapTabView: View {
         withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
             isTrainListPresented = false
             trainListDragOffset = 0
+        }
+    }
+
+    private func dismissStats() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            isStatsPresented = false
+            statsDragOffset = 0
+        }
+    }
+
+    private var mapStatisticsPanel: some View {
+        MapStatisticsPanel(
+            metrics: viewModel.metrics,
+            totalLiveTrainCount: viewModel.totalLiveTrainCount,
+            operatorCounts: Array(viewModel.operatorCounts.prefix(6)),
+            trainTypeCounts: Array(viewModel.trainTypeCounts.prefix(6))
+        )
+    }
+}
+
+private struct MapStatisticsPanel: View {
+    let metrics: TrainMetrics?
+    let totalLiveTrainCount: Int
+    let operatorCounts: [OperatorTrainCount]
+    let trainTypeCounts: [OperatorTrainCount]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 38, height: 5)
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity)
+
+            HStack(spacing: 8) {
+                compactMetric(title: "Stasjoner", flag: "NO", value: metrics.map { "\($0.trainStationsCountNO)" } ?? "—")
+                compactMetric(title: "Ruter", flag: "NO", value: metrics.map { "\($0.trainMessagesCountNO)" } ?? "—")
+                compactMetric(title: "Stasjoner", flag: "SE", value: metrics.map { "\($0.trainStationsCountSE)" } ?? "—")
+                compactMetric(title: "Ruter", flag: "SE", value: metrics.map { "\($0.trainMessagesCountSE)" } ?? "—")
+            }
+
+            compactHighlight(title: "Aktive tog", value: "\(totalLiveTrainCount)")
+
+            statisticChipRow(title: "Operatører", items: operatorCounts)
+            statisticChipRow(title: "Togtyper", items: trainTypeCounts)
+        }
+        .padding(12)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.18), radius: 20, y: 10)
+    }
+
+    private func compactMetric(title: String, flag: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            HStack(spacing: 6) {
+                MapStatisticsCountryFlagBadge(countryCode: flag)
+
+                Text(value)
+                    .font(.caption.monospacedDigit().weight(.bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(AppTheme.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
+        }
+    }
+
+    private func compactHighlight(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 8)
+
+            Text(value)
+                .font(.headline.monospacedDigit().weight(.bold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            LinearGradient(
+                colors: [Color.accentColor.opacity(0.16), AppTheme.surface.opacity(0.9)],
+                startPoint: .leading,
+                endPoint: .trailing
+            ),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.16), lineWidth: 1)
+        }
+    }
+
+    private func statisticChipRow(title: String, items: [OperatorTrainCount]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(items) { item in
+                        HStack(spacing: 6) {
+                            Text(item.name)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+
+                            Text("\(item.count)")
+                                .font(.caption.monospacedDigit().weight(.bold))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(AppTheme.surface.opacity(0.82), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .stroke(AppTheme.border, lineWidth: 1)
+                        }
+                    }
+                }
+                .padding(.horizontal, 1)
+            }
+        }
+    }
+}
+
+private struct MapStatisticsCountryFlagBadge: View {
+    let countryCode: String
+
+    var body: some View {
+        Group {
+            switch countryCode.uppercased() {
+            case "NO":
+                MapStatisticsNorwayFlagBadge()
+            case "SE":
+                MapStatisticsSwedenFlagBadge()
+            default:
+                Rectangle()
+                    .fill(AppTheme.elevatedSurface)
+                    .frame(width: 18, height: 12)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(AppTheme.border, lineWidth: 1)
+                    }
+            }
+        }
+        .frame(width: 18, height: 12)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+    }
+}
+
+private struct MapStatisticsNorwayFlagBadge: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(red: 0.73, green: 0.11, blue: 0.17))
+
+            Rectangle()
+                .fill(.white)
+                .frame(width: 4)
+                .offset(x: -4)
+
+            Rectangle()
+                .fill(.white)
+                .frame(height: 4)
+
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
+                .frame(width: 2.4)
+                .offset(x: -4)
+
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
+                .frame(height: 2.4)
+        }
+    }
+}
+
+private struct MapStatisticsSwedenFlagBadge: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color(red: 0.0, green: 0.32, blue: 0.61))
+
+            Rectangle()
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
+                .frame(width: 3.4)
+                .offset(x: -4)
+
+            Rectangle()
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
+                .frame(height: 3.4)
         }
     }
 }

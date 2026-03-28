@@ -2,7 +2,7 @@ import Observation
 import SwiftUI
 
 struct HomeStatisticsContentView: View {
-    @State private var viewModel = HomeTabViewModel()
+    @State private var viewModel = FavoriteTabViewModel()
 
     var body: some View {
         ScrollView {
