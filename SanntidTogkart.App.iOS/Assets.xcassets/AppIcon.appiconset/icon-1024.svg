@@ -11,9 +11,7 @@
   </defs>
 
   <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
-  <path d="M118 138C224 56 358 18 512 18c158 0 292 42 394 126v188C798 208 666 146 512 146c-156 0-290 55-394 164z" fill="#FFFFFF" opacity="0.08"/>
-
-  <g filter="url(#shadow)" transform="translate(-29 132) scale(15.8)" fill="#FFFFFF">
+  <g filter="url(#shadow)" transform="translate(-29 201) scale(15.8)" fill="#FFFFFF">
     <path d="M27.446 18.816L16.379 34.197h7.192l8.454-15.381z"/>
     <path d="M41.066 18.816h-4.58l8.455 15.381h7.191z"/>
     <path d="M29.412 14.736V10.01a4.817 4.817 0 0 1 4.814-4.814 4.817 4.817 0 0 1 4.814 4.814v4.726z"/>
