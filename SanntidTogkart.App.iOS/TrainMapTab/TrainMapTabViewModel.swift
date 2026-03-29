@@ -3,6 +3,13 @@ import MapKit
 import Observation
 import SwiftUI
 
+struct OperatorTrainCount: Identifiable, Hashable {
+    let name: String
+    let count: Int
+
+    var id: String { name }
+}
+
 @MainActor
 @Observable
 final class TrainMapTabViewModel {
