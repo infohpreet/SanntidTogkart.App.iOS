@@ -4,6 +4,7 @@ import SwiftUI
 struct StationMessagesView: View {
     let station: TraseStation
 
+    @State private var favoriteStations = FavoriteStationsStore.shared
     @State private var viewModel = StationMessagesViewModel()
 
     var body: some View {
@@ -64,10 +65,28 @@ struct StationMessagesView: View {
 
             Spacer(minLength: 12)
 
-            Text(viewModel.originDate)
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            VStack(alignment: .trailing, spacing: 10) {
+                Button {
+                    favoriteStations.toggle(station)
+                } label: {
+                    Image(systemName: favoriteStations.isFavorite(station) ? "star.fill" : "star")
+                        .font(.headline)
+                        .foregroundStyle(favoriteStations.isFavorite(station) ? Color.accentColor : .secondary)
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.elevatedSurface, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(AppTheme.border, lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(favoriteStations.isFavorite(station) ? "Fjern favoritt" : "Legg til favoritt")
+
+                Text(viewModel.originDate)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
