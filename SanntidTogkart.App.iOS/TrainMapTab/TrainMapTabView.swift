@@ -11,6 +11,7 @@ struct TrainMapTabView: View {
     @State private var isCountryZoomedOut = false
     @State private var isTrainListPresented = false
     @State private var isStatsPresented = false
+    @State private var isStatusPresented = false
     @State private var hasAutoPresentedStats = false
     @State private var showsStationMarkers = true
     @State private var showsStationMarkerLabels = true
@@ -19,6 +20,7 @@ struct TrainMapTabView: View {
     @State private var isSelectedTrainCardVisible = true
     @State private var trainListDragOffset: CGFloat = 0
     @State private var statsDragOffset: CGFloat = 0
+    @State private var statusDragOffset: CGFloat = 0
     @State private var mapMode: TrainMapMode = .standard
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
@@ -115,7 +117,7 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay {
-                if isTrainListPresented || isStatsPresented {
+                if isTrainListPresented || isStatsPresented || isStatusPresented {
                     Color.black.opacity(0.001)
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
@@ -125,6 +127,9 @@ struct TrainMapTabView: View {
                             }
                             if isStatsPresented {
                                 dismissStats()
+                            }
+                            if isStatusPresented {
+                                dismissStatus()
                             }
                         }
                 }
@@ -196,10 +201,44 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if !isTrainListPresented && !isStatsPresented {
+                if isStatusPresented && !isTrainListPresented && !isStatsPresented {
+                    connectionStatusPanel
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 92)
+                        .offset(y: max(0, statusDragOffset))
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
+                        .gesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    guard value.translation.height > 0 else {
+                                        statusDragOffset = 0
+                                        return
+                                    }
+
+                                    statusDragOffset = value.translation.height
+                                }
+                                .onEnded { value in
+                                    if value.translation.height > 120 || value.predictedEndTranslation.height > 180 {
+                                        dismissStatus()
+                                    } else {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            statusDragOffset = 0
+                                        }
+                                    }
+                                }
+                        )
+                        .zIndex(2)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !isTrainListPresented && !isStatsPresented && !isStatusPresented {
                     HStack(spacing: 12) {
                         currentLocationButton
                         mapModeButton
+                        statusButton
                         statsButton
                         trainListButton
                     }
@@ -358,9 +397,6 @@ struct TrainMapTabView: View {
                 isOn: $showsTrainMarkers
             )
 
-            Spacer(minLength: 0)
-
-            connectionStatusIndicator
         }
     }
 
@@ -410,9 +446,27 @@ struct TrainMapTabView: View {
         .accessibilityLabel("Vis statistikk")
     }
 
-    private var connectionStatusIndicator: some View {
-        ConnectionStatusDot(state: connectionCenter.state)
-            .accessibilityLabel(connectionCenter.accessibilityStatusText)
+    private var statusButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                isStatusPresented.toggle()
+                statusDragOffset = 0
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(.thinMaterial)
+                    .frame(width: 48, height: 48)
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
+                ConnectionStatusDot(state: connectionCenter.state)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(connectionCenter.accessibilityStatusText)
     }
 
     private func markerToggle(systemImage: String, isOn: Binding<Bool>) -> some View {
@@ -570,12 +624,28 @@ struct TrainMapTabView: View {
         }
     }
 
+    private func dismissStatus() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            isStatusPresented = false
+            statusDragOffset = 0
+        }
+    }
+
     private var mapStatisticsPanel: some View {
         MapStatisticsPanel(
             metrics: viewModel.metrics,
             totalLiveTrainCount: viewModel.totalLiveTrainCount,
             operatorCounts: Array(viewModel.operatorCounts.prefix(6)),
             trainTypeCounts: Array(viewModel.trainTypeCounts.prefix(6))
+        )
+    }
+
+    private var connectionStatusPanel: some View {
+        ConnectionStatusPanel(
+            state: connectionCenter.state,
+            details: connectionCenter.details,
+            lastUpdated: connectionCenter.lastUpdated,
+            handshake: connectionCenter.lastHandshake
         )
     }
 }
@@ -700,6 +770,114 @@ private struct MapStatisticsPanel: View {
                 }
                 .padding(.horizontal, 1)
             }
+        }
+    }
+}
+
+private struct ConnectionStatusPanel: View {
+    let state: ConnectionState
+    let details: String
+    let lastUpdated: Date?
+    let handshake: SignalRHandshakeInfo?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 38, height: 5)
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity)
+
+            HStack(spacing: 10) {
+                ConnectionStatusDot(state: state)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(state.description)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+
+                Spacer(minLength: 8)
+            }
+
+            if shouldShowDetails {
+                infoRow(title: "Detaljer", value: details)
+            }
+
+            if let handshake {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        handshakeCard(title: "Melding", value: handshake.message)
+                        handshakeCard(title: "Connection ID", value: handshake.connectionId)
+                    }
+
+                    handshakeCard(
+                        title: "Tidspunkt",
+                        value: handshake.timestamp.formatted(date: .abbreviated, time: .standard)
+                    )
+                }
+            } else {
+                Text("Venter på handshake-informasjon fra FeedHub.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.18), radius: 20, y: 10)
+    }
+
+    private var shouldShowDetails: Bool {
+        let normalizedDetails = details.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedState = state.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !normalizedDetails.isEmpty && normalizedDetails != normalizedState
+    }
+
+    private func infoRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.footnote)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(AppTheme.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
+        }
+    }
+
+    private func handshakeCard(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.footnote)
+                .foregroundStyle(.primary)
+                .lineLimit(title == "Connection ID" ? 2 : nil)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(AppTheme.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
         }
     }
 }
@@ -1628,14 +1806,7 @@ private struct ConnectionStatusDot: View {
     }
 
     private var color: Color {
-        switch state {
-        case .connected:
-            return .green
-        case .connecting, .reconnecting:
-            return .orange
-        case .disconnected, .failed:
-            return .red
-        }
+        Color.accentColor
     }
 
     private func updatePulse() {

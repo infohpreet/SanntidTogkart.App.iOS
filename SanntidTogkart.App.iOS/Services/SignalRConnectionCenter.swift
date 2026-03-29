@@ -10,6 +10,7 @@ final class SignalRConnectionCenter {
     var state: ConnectionState = .disconnected
     var details = "Ikke tilkoblet."
     var lastUpdated: Date?
+    var lastHandshake: SignalRHandshakeInfo?
 
     var accessibilityStatusText: String {
         if let lastUpdated {
@@ -29,5 +30,14 @@ final class SignalRConnectionCenter {
             self.details = state.description
         }
         self.lastUpdated = Date()
+    }
+
+    func updateHandshake(_ handshake: SignalRHandshakeInfo) {
+        lastHandshake = handshake
+        lastUpdated = Date()
+    }
+
+    func clearHandshake() {
+        lastHandshake = nil
     }
 }

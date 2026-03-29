@@ -15,6 +15,7 @@ final class SignalRService {
     var onLiveTrainMessages: (([TrainMessage]) -> Void)?
     var onTrainRoutePositions: (([TrainPosition]) -> Void)?
     var onStateChange: ((ConnectionState) -> Void)?
+    var onHandshake: ((SignalRHandshakeInfo) -> Void)?
     var onError: ((String) -> Void)?
 
     private let decoder: JSONDecoder
@@ -93,6 +94,7 @@ final class SignalRService {
         cachedMetrics = nil
 
         SignalRConnectionCenter.shared.update(state: .disconnected)
+        SignalRConnectionCenter.shared.clearHandshake()
         broadcast { service in
             service.onStateChange?(.disconnected)
             service.onStations?([])
@@ -758,6 +760,23 @@ final class SignalRService {
                     } catch {
                         await MainActor.run {
                             self.logDecodingFailure(prefix: "SignalR ReceiveTrainPositionList", error: error, data: argumentData)
+                        }
+                    }
+                }
+            case "Handshake":
+                let decoder = self.decoder
+                Task.detached(priority: .userInitiated) {
+                    do {
+                        let handshake = try await MainActor.run {
+                            try decoder.decode(SignalRHandshakeInfo.self, from: argumentData)
+                        }
+                        await MainActor.run {
+                            self.connectionCenter.updateHandshake(handshake)
+                            Self.broadcast { $0.onHandshake?(handshake) }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            self.logDecodingFailure(prefix: "SignalR Handshake", error: error, data: argumentData)
                         }
                     }
                 }
