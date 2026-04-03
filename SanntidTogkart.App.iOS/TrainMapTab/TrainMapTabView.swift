@@ -2,8 +2,11 @@ import CoreLocation
 import MapKit
 import Observation
 import SwiftUI
+import UIKit
 
 struct TrainMapTabView: View {
+    @Environment(\.openURL) private var openURL
+    @State private var navigationCenter = AppNavigationCenter.shared
     @State private var connectionCenter = SignalRConnectionCenter.shared
     @State private var locationManager = TrainMapLocationManager()
     @State private var viewModel = TrainMapTabViewModel()
@@ -13,6 +16,7 @@ struct TrainMapTabView: View {
     @State private var isStatsPresented = false
     @State private var isStatusPresented = false
     @State private var hasAutoPresentedStats = false
+    @State private var isLocationPermissionAlertPresented = false
     @State private var showsStationMarkers = true
     @State private var showsStationMarkerLabels = true
     @State private var showsTrainMarkers = true
@@ -24,6 +28,7 @@ struct TrainMapTabView: View {
     @State private var mapMode: TrainMapMode = .standard
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
+    @State private var pendingStationSelectionRequest: StationMapSelectionRequest?
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
         span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
@@ -70,11 +75,6 @@ struct TrainMapTabView: View {
                     )
                 }
             }
-            .overlay(alignment: .top) {
-                markerTogglePanel
-                    .padding(.top, 16)
-                    .padding(.horizontal, 16)
-            }
             .overlay(alignment: .topLeading) {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
@@ -109,7 +109,10 @@ struct TrainMapTabView: View {
                     .padding(.top, 18)
                     .padding(.horizontal, 16)
                 } else if let selectedStation {
-                    SelectedStationCard(station: selectedStation) {
+                    SelectedStationCard(
+                        station: selectedStation,
+                        distanceText: distanceText(for: selectedStation)
+                    ) {
                         selectedStationID = nil
                     }
                     .padding(.top, 18)
@@ -235,13 +238,18 @@ struct TrainMapTabView: View {
             }
             .overlay(alignment: .bottom) {
                 if !isTrainListPresented && !isStatsPresented && !isStatusPresented {
-                    HStack(spacing: 12) {
-                        currentLocationButton
-                        mapModeButton
-                        statusButton
-                        statsButton
-                        trainListButton
+                    VStack(spacing: 10) {
+                        markerTogglePanel
+
+                        HStack(spacing: 12) {
+                            currentLocationButton
+                            mapModeButton
+                            statusButton
+                            statsButton
+                            trainListButton
+                        }
                     }
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 96)
                 }
             }
@@ -258,6 +266,20 @@ struct TrainMapTabView: View {
                     isStatsPresented = true
                 }
             }
+            .onChange(of: navigationCenter.stationMapSelectionRequest) { _, request in
+                guard let request else {
+                    return
+                }
+
+                revealStationOnMap(request)
+            }
+            .onChange(of: viewModel.stations.count) { _, _ in
+                guard let pendingStationSelectionRequest else {
+                    return
+                }
+
+                revealStationOnMap(pendingStationSelectionRequest)
+            }
             .refreshable {
                 await viewModel.refresh()
             }
@@ -266,6 +288,18 @@ struct TrainMapTabView: View {
                 if let trainForStationsView {
                     TrainStationsView(trainMessage: trainForStationsView, title: "Togrute")
                 }
+            }
+            .alert("Lokasjonstilgang kreves", isPresented: $isLocationPermissionAlertPresented) {
+                Button("Avbryt", role: .cancel) {}
+                Button("Åpne innstillinger") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+                        return
+                    }
+
+                    openURL(url)
+                }
+            } message: {
+                Text("Gi tilgang til posisjon i Innstillinger for å vise din nåværende posisjon og avstand til stasjoner.")
             }
             .toolbar(.hidden, for: .navigationBar)
         }
@@ -376,6 +410,29 @@ struct TrainMapTabView: View {
         }
 
         return viewModel.stations.first(where: { $0.id == selectedStationID })
+    }
+
+    private func distanceText(for station: TraseStation) -> String? {
+        guard
+            let currentLocation = locationManager.currentLocation,
+            let latitude = station.latitude,
+            let longitude = station.longitude
+        else {
+            return nil
+        }
+
+        let stationLocation = CLLocation(latitude: latitude, longitude: longitude)
+        let userLocation = CLLocation(
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude
+        )
+        let distance = userLocation.distance(from: stationLocation)
+
+        if distance < 1000 {
+            return "\(Int(distance.rounded())) m"
+        }
+
+        return String(format: "%.1f km", distance / 1000)
     }
 
     private var markerTogglePanel: some View {
@@ -522,7 +579,12 @@ struct TrainMapTabView: View {
 
     private var currentLocationButton: some View {
         Button {
-            locationManager.requestCurrentLocation()
+            switch locationManager.authorizationStatus {
+            case .denied, .restricted:
+                isLocationPermissionAlertPresented = true
+            default:
+                locationManager.requestCurrentLocation()
+            }
         } label: {
             Image(systemName: "location.fill")
                 .font(.headline)
@@ -608,6 +670,31 @@ struct TrainMapTabView: View {
         }
 
         selectedStationID = station.id
+    }
+
+    private func revealStationOnMap(_ request: StationMapSelectionRequest) {
+        guard viewModel.stations.contains(where: { $0.id == request.stationID }) else {
+            pendingStationSelectionRequest = request
+            return
+        }
+
+        pendingStationSelectionRequest = nil
+        isSelectedTrainCardVisible = false
+        viewModel.clearSelection()
+        selectedStationID = request.stationID
+
+        guard let latitude = request.latitude, let longitude = request.longitude else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.35)) {
+            position = .region(
+                MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                    span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
+                )
+            )
+        }
     }
 
     private func dismissTrainList() {
@@ -1481,6 +1568,7 @@ private struct SelectedTrainCard: View {
 
 private struct SelectedStationCard: View {
     let station: TraseStation
+    let distanceText: String?
     let onClear: () -> Void
 
     var body: some View {
@@ -1521,9 +1609,12 @@ private struct SelectedStationCard: View {
                     TrainInfoColumn(title: "Type", value: "Grensestasjon")
                 }
 
-                TrainInfoColumn(title: "Sist oppdatert", value: station.displayTimestamp)
+                TrainInfoColumn(title: "Koordinater", value: station.displayCoordinateText)
                 Spacer(minLength: 0)
-                TrainInfoColumn(title: "Koordinater", value: station.displayCoordinateText, alignment: .trailing)
+
+                if let distanceText {
+                    TrainInfoColumn(title: "Avstand", value: distanceText, alignment: .trailing)
+                }
             }
         }
         .padding(16)

@@ -1,8 +1,15 @@
+import CoreLocation
 import SwiftUI
+import UIKit
 
 struct StationsTabView: View {
+    @Environment(\.openURL) private var openURL
+    @State private var navigationCenter = AppNavigationCenter.shared
     @State private var viewModel = StationsTabViewModel()
     @State private var searchText = ""
+    @State private var selectedStationForMessages: TraseStation?
+    @State private var isStationMessagesViewPresented = false
+    @State private var isLocationPermissionAlertPresented = false
 
     var body: some View {
         NavigationStack {
@@ -33,12 +40,11 @@ struct StationsTabView: View {
                                 .padding(.bottom, 14)
 
                             ForEach(Array(viewModel.filteredStations.enumerated()), id: \.element.id) { index, station in
-                                NavigationLink {
-                                    StationMessagesView(station: station)
-                                } label: {
-                                    stationRow(station)
-                                }
-                                .buttonStyle(.plain)
+                                stationRow(station)
+                                    .onTapGesture {
+                                        selectedStationForMessages = station
+                                        isStationMessagesViewPresented = true
+                                    }
 
                                 if index < viewModel.filteredStations.count - 1 {
                                     Rectangle()
@@ -60,6 +66,23 @@ struct StationsTabView: View {
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Stasjoner")
             .searchable(text: $searchText, prompt: "Søk etter stasjon")
+            .navigationDestination(isPresented: $isStationMessagesViewPresented) {
+                if let selectedStationForMessages {
+                    StationMessagesView(station: selectedStationForMessages)
+                }
+            }
+            .alert("Lokasjonstilgang kreves", isPresented: $isLocationPermissionAlertPresented) {
+                Button("Avbryt", role: .cancel) {}
+                Button("Åpne innstillinger") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else {
+                        return
+                    }
+
+                    openURL(url)
+                }
+            } message: {
+                Text("Gi tilgang til posisjon i Innstillinger for å vise din nåværende posisjon og avstand til stasjoner.")
+            }
         }
         .task {
             await viewModel.start()
@@ -134,6 +157,29 @@ struct StationsTabView: View {
                     }
 
                     Spacer(minLength: 0)
+
+                    Button {
+                        switch viewModel.locationAuthorizationStatus {
+                        case .notDetermined:
+                            viewModel.requestLocationAccess()
+                        case .denied, .restricted:
+                            isLocationPermissionAlertPresented = true
+                        default:
+                            navigationCenter.showStationOnMap(station)
+                        }
+                    } label: {
+                        Image(systemName: "location.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 28, height: 28)
+                            .background(AppTheme.elevatedSurface, in: Circle())
+                            .overlay {
+                                Circle()
+                                    .stroke(AppTheme.border, lineWidth: 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Vis på kart")
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -144,8 +190,8 @@ struct StationsTabView: View {
 
                     Spacer(minLength: 8)
 
-                    if let coordinatesText = station.coordinatesText {
-                        Text(coordinatesText)
+                    if let distanceText = viewModel.distanceText(for: station) {
+                        Text(distanceText)
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -186,14 +232,6 @@ private extension TraseStation {
         return [trimmedShortName, trimmedPlcCode]
             .filter { !$0.isEmpty }
             .joined(separator: " • ")
-    }
-
-    var coordinatesText: String? {
-        guard let latitude, let longitude else {
-            return nil
-        }
-
-        return String(format: "%.5f, %.5f", latitude, longitude)
     }
 }
 

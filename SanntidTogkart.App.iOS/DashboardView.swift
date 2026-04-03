@@ -2,13 +2,15 @@ import SwiftUI
 
 struct DashboardView: View {
     @State private var connectionCenter = SignalRConnectionCenter.shared
+    @State private var navigationCenter = AppNavigationCenter.shared
     let user: EntraIDUser
     let authSession: AuthSession
     let onLogout: () -> Void
 
     var body: some View {
-        TabView {
+        TabView(selection: selectedTabBinding) {
             TrainMapTabView()
+            .tag(DashboardTab.map)
             .tabItem {
                 VStack(spacing: 2) {
                     ZStack(alignment: .topTrailing) {
@@ -29,24 +31,35 @@ struct DashboardView: View {
             }
 
             FavoriteTabView()
+            .tag(DashboardTab.favorites)
             .tabItem {
                 Label("Favoritter", systemImage: "star.fill")
             }
 
             RoutesTabView()
+            .tag(DashboardTab.routes)
             .tabItem {
                 Label("Ruter", systemImage: "arrow.triangle.swap")
             }
 
             StationsTabView()
+            .tag(DashboardTab.stations)
             .tabItem {
                 Label("Stasjoner", systemImage: "building.columns.fill")
             }
 
             SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)
+            .tag(DashboardTab.settings)
             .tabItem {
                 Label("Innstillinger", systemImage: "gearshape.fill")
             }
         }
+    }
+
+    private var selectedTabBinding: Binding<DashboardTab> {
+        Binding(
+            get: { navigationCenter.selectedDashboardTab },
+            set: { navigationCenter.selectedDashboardTab = $0 }
+        )
     }
 }
