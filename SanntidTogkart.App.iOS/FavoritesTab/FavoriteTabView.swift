@@ -21,12 +21,7 @@ struct FavoriteTabView: View {
 
                             LazyVStack(spacing: 16) {
                                 ForEach(viewModel.cards) { card in
-                                    NavigationLink {
-                                        StationMessagesView(station: card.favorite.station)
-                                    } label: {
-                                        favoriteCard(for: card)
-                                    }
-                                    .buttonStyle(.plain)
+                                    favoriteCard(for: card)
                                 }
                             }
                         }
@@ -90,77 +85,104 @@ struct FavoriteTabView: View {
     }
 
     private func favoriteCard(for card: FavoriteStationCardState) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                favoriteCountryFlagBadge(for: card.favorite)
+        VStack(alignment: .leading, spacing: 0) {
+            NavigationLink {
+                StationMessagesView(station: card.favorite.station)
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    favoriteCountryFlagBadge(for: card.favorite)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(alignment: .center, spacing: 8) {
-                        Text(card.favorite.name)
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(alignment: .center, spacing: 8) {
+                            Text(card.favorite.name)
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
 
-                        if card.favorite.isBorderStation {
-                            Text("Grense")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(Color.orange.opacity(0.10), in: Capsule())
+                            if card.favorite.isBorderStation {
+                                Text("Grense")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Color.orange.opacity(0.10), in: Capsule())
+                            }
                         }
+
+                        Text(favoriteMetadataLine(for: card.favorite))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
 
-                    Text(favoriteMetadataLine(for: card.favorite))
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    Spacer(minLength: 12)
+
+                    Button {
+                        favoriteStations.remove(card.favorite)
+                    } label: {
+                        Image(systemName: "star.fill")
+                            .font(.headline)
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 36, height: 36)
+                            .background(AppTheme.surface, in: Circle())
+                            .overlay {
+                                Circle()
+                                    .stroke(AppTheme.border, lineWidth: 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fjern favoritt")
                 }
-
-                Spacer(minLength: 12)
-
-                Button {
-                    favoriteStations.remove(card.favorite)
-                } label: {
-                    Image(systemName: "star.fill")
-                        .font(.headline)
-                        .foregroundStyle(Color.accentColor)
-                        .frame(width: 36, height: 36)
-                        .background(AppTheme.surface, in: Circle())
-                        .overlay {
-                            Circle()
-                                .stroke(AppTheme.border, lineWidth: 1)
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Fjern favoritt")
-            }
-
-            if card.isLoading {
-                loadingMessageCard
-            } else if let errorText = card.errorText {
-                statusMessageCard(
-                    title: "Kunne ikke hente meldinger",
-                    subtitle: errorText,
-                    systemImage: "exclamationmark.triangle.fill",
-                    tint: .orange
-                )
-            } else if let stationMessage = card.selectedMessage {
-                upcomingMessageCard(
-                    card: card,
-                    stationMessage: stationMessage,
-                    trainDetail: card.trainDetail(for: stationMessage)
-                )
-            } else {
-                statusMessageCard(
-                    title: "Ingen kommende meldinger",
-                    subtitle: "Denne favorittstasjonen har ingen meldinger tilgjengelig akkurat nå.",
-                    systemImage: "clock.badge.exclamationmark",
-                    tint: .secondary
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 14)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color.accentColor.opacity(0.12),
+                            AppTheme.surface,
+                            AppTheme.elevatedSurface.opacity(0.92)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: UnevenRoundedRectangle(
+                        topLeadingRadius: 8,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: 8
+                    )
                 )
             }
+            .buttonStyle(.plain)
+
+            Group {
+                if card.isLoading {
+                    loadingMessageCard
+                } else if let errorText = card.errorText {
+                    statusMessageCard(
+                        title: "Kunne ikke hente meldinger",
+                        subtitle: errorText,
+                        systemImage: "exclamationmark.triangle.fill",
+                        tint: .orange
+                    )
+                } else if let stationMessage = card.selectedMessage {
+                    upcomingMessageCard(
+                        card: card,
+                        stationMessage: stationMessage,
+                        trainDetail: card.trainDetail(for: stationMessage)
+                    )
+                } else {
+                    statusMessageCard(
+                        title: "Ingen kommende meldinger",
+                        subtitle: "Denne favorittstasjonen har ingen meldinger tilgjengelig akkurat nå.",
+                        systemImage: "clock.badge.exclamationmark",
+                        tint: .secondary
+                    )
+                }
+            }
+            .padding(16)
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
@@ -230,24 +252,27 @@ struct FavoriteTabView: View {
         stationMessage: StationMessage,
         trainDetail: TrainMessage?
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let isPast = isPastStationMessage(stationMessage)
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let lineNumber = normalizedText(trainDetail?.lineNumber) {
                     Text(lineNumber)
-                        .font(.headline.monospacedDigit().weight(.bold))
+                        .font(.headline.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.primary)
 
                     Text("•")
-                        .font(.title3.weight(.bold))
+                        .font(.headline)
                         .foregroundStyle(.secondary)
                 }
 
                 Text(displayTrainNumber(for: stationMessage, detail: trainDetail))
-                    .font(.headline.monospacedDigit().weight(.bold))
+                    .font(.headline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.primary)
 
                 if let trainKind = normalizedText(stationMessage.trainKind) {
                     Text("•")
+                        .font(.headline)
                         .foregroundStyle(.secondary)
 
                     Text(trainKind)
@@ -259,26 +284,66 @@ struct FavoriteTabView: View {
                 Spacer(minLength: 8)
 
                 if let scheduledTrack = normalizedText(stationMessage.scheduledTrack) {
-                    Text("Spor \(scheduledTrack)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.accentColor.opacity(0.10), in: Capsule())
+                    Text(scheduledTrack)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.primary)
                 }
             }
 
-            if let routeText = displayRoute(for: trainDetail) {
-                Text(routeText)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            if let routeParts = displayRouteParts(for: trainDetail) {
+                HStack(spacing: 8) {
+                    Text(routeParts.origin)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    Image(systemName: "arrow.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(routeParts.destination)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
 
-            HStack(spacing: 10) {
-                infoPill(title: "Aktivitet", value: activityText(for: stationMessage))
-                infoPill(title: "Planlagt", value: scheduledTime(for: stationMessage))
-                infoPill(title: "Estimert", value: estimatedTime(for: stationMessage))
+            HStack(spacing: 8) {
+                Text(stationMessage.originDate)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 6) {
+                    if isPast {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.green)
+                    }
+
+                    Text(activityText(for: stationMessage))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Rectangle()
+                .fill(AppTheme.border)
+                .frame(height: 1)
+
+            HStack(spacing: 18) {
+                infoColumn(title: "Planlagt", value: scheduledTime(for: stationMessage))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                infoColumn(title: "Estimert", value: estimatedTime(for: stationMessage))
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                infoColumn(title: "Faktisk", value: actualTime(for: stationMessage))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             HStack(alignment: .center, spacing: 10) {
@@ -299,12 +364,8 @@ struct FavoriteTabView: View {
                 .disabled(!card.canGoBackward)
 
                 VStack(spacing: 3) {
-                    Text(messageTimingLabel(for: stationMessage))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-
                     Text("Melding \(card.selectedIndex + 1) av \(card.messages.count)")
-                        .font(.caption)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -327,37 +388,18 @@ struct FavoriteTabView: View {
             }
         }
         .padding(14)
-        .background(
-            LinearGradient(
-                colors: [Color.accentColor.opacity(0.10), AppTheme.background],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 8)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.accentColor.opacity(0.14), lineWidth: 1)
-        }
+        .opacity(isPast ? 0.72 : 1)
     }
 
-    private func infoPill(title: String, value: String) -> some View {
+    private func infoColumn(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption2.weight(.semibold))
+                .font(.caption)
                 .foregroundStyle(.secondary)
 
             Text(value)
-                .font(.caption.monospacedDigit().weight(.bold))
+                .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.primary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(AppTheme.border, lineWidth: 1)
         }
     }
 
@@ -414,20 +456,12 @@ struct FavoriteTabView: View {
         return "Ukjent"
     }
 
-    private func messageTimingLabel(for stationMessage: StationMessage) -> String {
-        if let actual = stationMessage.ata ?? stationMessage.atd {
-            return "Faktisk \(displayTime(actual))"
+    private func actualTime(for stationMessage: StationMessage) -> String {
+        if let actualTime = stationMessage.ata ?? stationMessage.atd {
+            return displayTime(actualTime)
         }
 
-        if let estimated = stationMessage.eta ?? stationMessage.etd {
-            return "Neste \(displayTime(estimated))"
-        }
-
-        if let scheduled = stationMessage.sta ?? stationMessage.std {
-            return "Planlagt \(displayTime(scheduled))"
-        }
-
-        return "Tid ukjent"
+        return "Ukjent"
     }
 
     private func displayTime(_ date: Date) -> String {
@@ -438,7 +472,23 @@ struct FavoriteTabView: View {
         )
     }
 
-    private func displayRoute(for trainDetail: TrainMessage?) -> String? {
+    private func isPastStationMessage(_ stationMessage: StationMessage) -> Bool {
+        let referenceDate =
+            stationMessage.ata
+            ?? stationMessage.atd
+            ?? stationMessage.eta
+            ?? stationMessage.etd
+            ?? stationMessage.sta
+            ?? stationMessage.std
+
+        guard let referenceDate else {
+            return false
+        }
+
+        return referenceDate < AppTime.now
+    }
+
+    private func displayRouteParts(for trainDetail: TrainMessage?) -> (origin: String, destination: String)? {
         guard let trainDetail else {
             return nil
         }
@@ -448,11 +498,7 @@ struct FavoriteTabView: View {
 
         switch (origin, destination) {
         case let (.some(origin), .some(destination)):
-            return "\(origin) → \(destination)"
-        case let (.some(origin), _):
-            return origin
-        case let (_, .some(destination)):
-            return destination
+            return (origin, destination)
         default:
             return nil
         }
