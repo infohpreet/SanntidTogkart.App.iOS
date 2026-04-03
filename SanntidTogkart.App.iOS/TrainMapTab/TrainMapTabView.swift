@@ -15,7 +15,6 @@ struct TrainMapTabView: View {
     @State private var isTrainListPresented = false
     @State private var isStatsPresented = false
     @State private var isStatusPresented = false
-    @State private var hasAutoPresentedStats = false
     @State private var isLocationPermissionAlertPresented = false
     @State private var showsStationMarkers = true
     @State private var showsStationMarkerLabels = true
@@ -238,33 +237,13 @@ struct TrainMapTabView: View {
             }
             .overlay(alignment: .bottom) {
                 if !isTrainListPresented && !isStatsPresented && !isStatusPresented {
-                    VStack(spacing: 10) {
-                        markerTogglePanel
-
-                        HStack(spacing: 12) {
-                            currentLocationButton
-                            mapModeButton
-                            statusButton
-                            statsButton
-                            trainListButton
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 96)
+                    bottomControlBar
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 96)
                 }
             }
             .task {
                 await viewModel.start()
-            }
-            .onAppear {
-                guard !hasAutoPresentedStats else {
-                    return
-                }
-
-                hasAutoPresentedStats = true
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                    isStatsPresented = true
-                }
             }
             .onChange(of: navigationCenter.stationMapSelectionRequest) { _, request in
                 guard let request else {
@@ -457,6 +436,35 @@ struct TrainMapTabView: View {
         }
     }
 
+    private var bottomControlBar: some View {
+        VStack(spacing: 10) {
+            markerTogglePanel
+
+            HStack(spacing: 10) {
+                currentLocationButton
+                mapModeButton
+                statusButton
+                statsButton
+                trainListButton
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background {
+            ZStack {
+                SystemChromeMaterialView()
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.12), radius: 14, y: 6)
+    }
+
     private var mapModeButton: some View {
         Menu {
             ForEach(TrainMapMode.allCases) { mode in
@@ -471,12 +479,6 @@ struct TrainMapTabView: View {
                 .font(.headline)
                 .foregroundStyle(.primary)
                 .frame(width: 48, height: 48)
-                .background(.thinMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
         }
         .accessibilityLabel("Velg kartvisning")
     }
@@ -492,12 +494,6 @@ struct TrainMapTabView: View {
                 .font(.headline)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 48, height: 48)
-                .background(.thinMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Vis statistikk")
@@ -511,15 +507,8 @@ struct TrainMapTabView: View {
             }
         } label: {
             ZStack {
-                Circle()
-                    .fill(.thinMaterial)
-                    .frame(width: 48, height: 48)
-                    .overlay {
-                        Circle()
-                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                    }
-                    .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
                 ConnectionStatusDot(state: connectionCenter.state)
+                    .frame(width: 48, height: 48)
             }
         }
         .buttonStyle(.plain)
@@ -548,12 +537,6 @@ struct TrainMapTabView: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
-        .background(.thinMaterial, in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(Color.white.opacity(0.35), lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.05), radius: 5, y: 2)
     }
 
     private var trainListButton: some View {
@@ -566,12 +549,6 @@ struct TrainMapTabView: View {
                 .font(.headline)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 48, height: 48)
-                .background(.thinMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Apne togliste")
@@ -590,12 +567,6 @@ struct TrainMapTabView: View {
                 .font(.headline)
                 .foregroundStyle(locationManager.hasLocationAccess ? Color.accentColor : .primary)
                 .frame(width: 48, height: 48)
-                .background(.thinMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Gå til nåværende posisjon")
@@ -1049,26 +1020,33 @@ private struct TrainListSheet: View {
     @State private var searchText = ""
     @State private var indexedTrains: [TrainListEntry] = []
     @State private var displayedTrainList: [TrainListEntry] = []
+    private let drawerContentHeightRatio: CGFloat = 0.5
 
     var body: some View {
-        VStack(spacing: 6) {
-            Capsule()
-                .fill(Color.secondary.opacity(0.35))
-                .frame(width: 38, height: 5)
-                .padding(.top, 8)
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
 
-            searchField
-            summaryCard
-            content
+                VStack(spacing: 6) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.35))
+                        .frame(width: 38, height: 5)
+                        .padding(.top, 8)
+
+                    searchField
+                    summaryCard
+                    content(drawerContentHeight: geometry.size.height * drawerContentHeightRatio)
+                }
+                .padding(12)
+                .frame(maxWidth: 560)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 26)
+                        .stroke(Color.white.opacity(0.45), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.16), radius: 20, y: 10)
+            }
         }
-        .padding(12)
-        .frame(maxWidth: 560)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26))
-        .overlay {
-            RoundedRectangle(cornerRadius: 26)
-                .stroke(Color.white.opacity(0.45), lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.16), radius: 20, y: 10)
         .task(id: trainListFingerprint) {
             rebuildSearchIndex()
         }
@@ -1110,7 +1088,7 @@ private struct TrainListSheet: View {
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(drawerContentHeight: CGFloat) -> some View {
         if !displayedTrainList.isEmpty {
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -1127,7 +1105,7 @@ private struct TrainListSheet: View {
                 }
                 .padding(.horizontal, 2)
             }
-            .frame(height: 520)
+            .frame(height: drawerContentHeight)
         } else {
             VStack {
                 Spacer()
@@ -1142,7 +1120,7 @@ private struct TrainListSheet: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 520, alignment: .center)
+            .frame(height: drawerContentHeight, alignment: .center)
         }
     }
 
@@ -1912,6 +1890,16 @@ private struct ConnectionStatusDot: View {
         withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
             isPulsing = true
         }
+    }
+}
+
+private struct SystemChromeMaterialView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+    }
+
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
+        uiView.effect = UIBlurEffect(style: .systemChromeMaterial)
     }
 }
 
