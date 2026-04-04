@@ -16,8 +16,8 @@ struct SettingsTabView: View {
                     profileCard
                     accountCard
                     appearanceCard
-                    securityCard
                     environmentCard
+                    securityCard
                     actionCard
                 }
                 .padding(20)
@@ -101,19 +101,12 @@ struct SettingsTabView: View {
                     isSwitchingEnvironment = false
                 }
             }
-
-            HStack {
-                Text(AuthConfig.current.hubURL.absoluteString)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .textSelection(.enabled)
-
-                Spacer()
-
-                if isSwitchingEnvironment {
+            if isSwitchingEnvironment {
+                HStack {
+                    Spacer()
                     ProgressView()
                         .controlSize(.small)
+                    Spacer()
                 }
             }
         }
@@ -146,12 +139,6 @@ struct SettingsTabView: View {
                     .font(.subheadline.weight(.medium))
             }
             .tint(.accentColor)
-
-            if authSession.isBiometricEnabled {
-                Text("Innlogging lagres kun når Face ID er aktivert.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -163,7 +150,7 @@ struct SettingsTabView: View {
             Label("Utseende", systemImage: "circle.lefthalf.filled")
                 .font(.headline)
 
-            Text("Velg om appen skal folge systemet eller alltid bruke lys eller mork modus.")
+            Text("Velg om appen skal folge systemet eller alltid bruke lys eller mørk modus.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

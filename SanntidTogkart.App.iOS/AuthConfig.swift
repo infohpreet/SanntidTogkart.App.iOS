@@ -4,7 +4,7 @@ enum AuthConfig {
     static var currentEnvironment: AppEnvironment {
         get {
             let storedValue = UserDefaults.standard.string(forKey: StorageKeys.environment)
-            return AppEnvironment(rawValue: storedValue ?? "") ?? .staging
+            return AppEnvironment(rawValue: storedValue ?? "") ?? .prod
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: StorageKeys.environment)
@@ -36,9 +36,9 @@ enum AuthConfig {
 }
 
 enum AppEnvironment: String, CaseIterable, Identifiable {
-    case staging
-    case training
     case prod
+    case training
+    case staging
 
     var id: String { rawValue }
 

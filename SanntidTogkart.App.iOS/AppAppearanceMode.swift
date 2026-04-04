@@ -14,7 +14,7 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
         case .light:
             return "Lys"
         case .dark:
-            return "Mork"
+            return "Mørk"
         }
     }
 
