@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DashboardView: View {
-    @State private var connectionCenter = SignalRConnectionCenter.shared
+    @Environment(\.colorScheme) private var colorScheme
     @State private var navigationCenter = AppNavigationCenter.shared
     let user: EntraIDUser
     let authSession: AuthSession
@@ -10,48 +10,39 @@ struct DashboardView: View {
     var body: some View {
         TabView(selection: selectedTabBinding) {
             TrainMapTabView()
+            .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .tabBar)
             .tag(DashboardTab.map)
             .tabItem {
                 VStack(spacing: 2) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "map")
-
-                        Circle()
-                            .fill(connectionCenter.state.color)
-                            .frame(width: 7, height: 7)
-                            .overlay {
-                                Circle()
-                                    .stroke(AppTheme.background, lineWidth: 1.5)
-                            }
-                            .offset(x: 6, y: -2)
-                    }
-
+                    Image(systemName: "map")
                     Text("Kart")
                 }
+                .foregroundColor(colorScheme == .dark ? .white : .black)
+                .environment(\.symbolVariants, .none)
             }
 
             FavoriteTabView()
             .tag(DashboardTab.favorites)
             .tabItem {
-                Label("Favoritter", systemImage: "star.fill")
+                tabItemLabel("Favoritter", systemImage: "star")
             }
 
             RoutesTabView()
             .tag(DashboardTab.routes)
             .tabItem {
-                Label("Ruter", systemImage: "arrow.triangle.swap")
+                tabItemLabel("Ruter", systemImage: "arrow.triangle.swap")
             }
 
             StationsTabView()
             .tag(DashboardTab.stations)
             .tabItem {
-                Label("Stasjoner", systemImage: "building.columns.fill")
+                tabItemLabel("Stasjoner", systemImage: "building.columns")
             }
 
             SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)
             .tag(DashboardTab.settings)
             .tabItem {
-                Label("Innstillinger", systemImage: "gearshape.fill")
+                tabItemLabel("Innstillinger", systemImage: "gearshape")
             }
         }
     }
@@ -61,5 +52,12 @@ struct DashboardView: View {
             get: { navigationCenter.selectedDashboardTab },
             set: { navigationCenter.selectedDashboardTab = $0 }
         )
+    }
+
+    @ViewBuilder
+    private func tabItemLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .environment(\.symbolVariants, .none)
+            .symbolRenderingMode(.monochrome)
     }
 }

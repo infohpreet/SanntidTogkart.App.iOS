@@ -5,6 +5,7 @@ import SwiftUI
 import UIKit
 
 struct TrainMapTabView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
     @State private var navigationCenter = AppNavigationCenter.shared
     @State private var connectionCenter = SignalRConnectionCenter.shared
@@ -450,19 +451,20 @@ struct TrainMapTabView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
-        .background {
-            ZStack {
-                SystemChromeMaterialView()
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.04))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
+        .background(bottomControlBarBackgroundColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(AppTheme.border, lineWidth: 1)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 0.8)
         }
-        .shadow(color: Color.black.opacity(0.12), radius: 14, y: 6)
+        .shadow(color: Color.black.opacity(0.08), radius: 10, y: 4)
+    }
+
+    private var bottomControlBarBackgroundColor: Color {
+        if colorScheme == .dark {
+            return Color.white.opacity(0.18)
+        }
+
+        return Color(.systemBackground).opacity(0.52)
     }
 
     private var mapModeButton: some View {
