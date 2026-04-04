@@ -61,11 +61,7 @@ struct SettingsTabView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
         .background(
-            LinearGradient(
-                colors: [Color.accentColor.opacity(0.15), AppTheme.surface],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
+            AppTheme.surface,
             in: RoundedRectangle(cornerRadius: 8)
         )
     }

@@ -121,13 +121,7 @@ struct StationsTabView: View {
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.surface, AppTheme.background],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(AppTheme.surface)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8)
