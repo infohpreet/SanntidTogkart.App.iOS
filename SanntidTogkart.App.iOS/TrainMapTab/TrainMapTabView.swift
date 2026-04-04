@@ -505,6 +505,14 @@ struct TrainMapTabView: View {
         return Color(.systemBackground).opacity(0.52)
     }
 
+    private var highlightedMapControlIconColor: Color {
+        colorScheme == .dark ? .white : Color.accentColor
+    }
+
+    private var neutralMapControlIconColor: Color {
+        colorScheme == .dark ? .white : .primary
+    }
+
     private var mapModeButton: some View {
         Button {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
@@ -514,7 +522,7 @@ struct TrainMapTabView: View {
         } label: {
             Image(systemName: mapMode.systemImage)
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(highlightedMapControlIconColor)
                 .frame(width: 48, height: 48)
         }
         .buttonStyle(.plain)
@@ -530,7 +538,7 @@ struct TrainMapTabView: View {
         } label: {
             Image(systemName: isStatsPresented ? "chart.bar.xaxis.circle.fill" : "chart.bar.xaxis")
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(highlightedMapControlIconColor)
                 .frame(width: 48, height: 48)
         }
         .buttonStyle(.plain)
@@ -585,7 +593,7 @@ struct TrainMapTabView: View {
         } label: {
             Image(systemName: "list.bullet")
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(highlightedMapControlIconColor)
                 .frame(width: 48, height: 48)
         }
         .buttonStyle(.plain)
@@ -603,7 +611,7 @@ struct TrainMapTabView: View {
         } label: {
             Image(systemName: "location.fill")
                 .font(.headline)
-                .foregroundStyle(locationManager.hasLocationAccess ? Color.accentColor : .primary)
+                .foregroundStyle(locationManager.hasLocationAccess ? highlightedMapControlIconColor : neutralMapControlIconColor)
                 .frame(width: 48, height: 48)
         }
         .buttonStyle(.plain)
