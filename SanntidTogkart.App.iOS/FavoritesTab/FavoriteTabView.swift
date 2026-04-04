@@ -91,15 +91,7 @@ struct FavoriteTabView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 14)
                 .background(
-                    LinearGradient(
-                        colors: [
-                            Color.accentColor.opacity(0.12),
-                            AppTheme.surface,
-                            AppTheme.elevatedSurface.opacity(0.92)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
+                    AppTheme.surface,
                     in: UnevenRoundedRectangle(
                         topLeadingRadius: 8,
                         bottomLeadingRadius: 0,
@@ -135,15 +127,11 @@ struct FavoriteTabView: View {
                     )
                 }
             }
-            .padding(16)
+            .padding(12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(
-                colors: [AppTheme.surface, AppTheme.elevatedSurface],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
+            AppTheme.surface,
             in: RoundedRectangle(cornerRadius: 8)
         )
         .overlay {
@@ -163,8 +151,8 @@ struct FavoriteTabView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
         .background(AppTheme.background, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -192,8 +180,8 @@ struct FavoriteTabView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
         .background(AppTheme.background, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -341,7 +329,7 @@ struct FavoriteTabView: View {
                 .disabled(!card.canGoForward)
             }
         }
-        .padding(14)
+        .padding(12)
         .opacity(isPast ? 0.72 : 1)
     }
 

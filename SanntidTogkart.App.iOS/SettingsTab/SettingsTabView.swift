@@ -5,6 +5,7 @@ struct SettingsTabView: View {
     let user: EntraIDUser
     @Bindable var authSession: AuthSession
     let onLogout: () -> Void
+    @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.dark.rawValue
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
     @State private var isSwitchingEnvironment = false
 
@@ -14,6 +15,7 @@ struct SettingsTabView: View {
                 VStack(spacing: 18) {
                     profileCard
                     accountCard
+                    appearanceCard
                     securityCard
                     environmentCard
                     actionCard
@@ -53,9 +55,6 @@ struct SettingsTabView: View {
             VStack(spacing: 6) {
                 Text(user.displayName)
                     .font(.title2.weight(.bold))
-                Text(user.username)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -153,6 +152,27 @@ struct SettingsTabView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var appearanceCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Utseende", systemImage: "circle.lefthalf.filled")
+                .font(.headline)
+
+            Text("Velg om appen skal folge systemet eller alltid bruke lys eller mork modus.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Picker("Utseende", selection: $appAppearanceModeRawValue) {
+                ForEach(AppAppearanceMode.allCases) { mode in
+                    Text(mode.title).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)

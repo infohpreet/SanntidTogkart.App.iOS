@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var authSession = AuthSession()
+    @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.dark.rawValue
 
     var body: some View {
         Group {
@@ -24,6 +25,7 @@ struct ContentView: View {
         .task {
             await authSession.restoreSessionIfNeeded()
         }
+        .preferredColorScheme(appAppearanceMode.colorScheme)
     }
 
     private var activeUser: EntraIDUser? {
@@ -37,6 +39,10 @@ struct ContentView: View {
         #else
         authSession.currentUser
         #endif
+    }
+
+    private var appAppearanceMode: AppAppearanceMode {
+        AppAppearanceMode(rawValue: appAppearanceModeRawValue) ?? .system
     }
 }
 

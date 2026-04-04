@@ -8,16 +8,8 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    AppTheme.background,
-                    Color.accentColor.opacity(0.08),
-                    AppTheme.surface
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            AppTheme.background
+                .ignoresSafeArea()
 
             VStack(spacing: 28) {
                 VStack(spacing: 14) {

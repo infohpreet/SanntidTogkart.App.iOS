@@ -845,11 +845,7 @@ private struct MapStatisticsPanel: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            LinearGradient(
-                colors: [Color.accentColor.opacity(0.16), AppTheme.surface.opacity(0.9)],
-                startPoint: .leading,
-                endPoint: .trailing
-            ),
+            AppTheme.surface,
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
         .overlay {
@@ -1340,13 +1336,7 @@ private struct TrainListSheet: View {
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.surface, AppTheme.background],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(AppTheme.surface)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8)
