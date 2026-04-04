@@ -16,6 +16,7 @@ struct TrainMapTabView: View {
     @State private var isTrainListPresented = false
     @State private var isStatsPresented = false
     @State private var isStatusPresented = false
+    @State private var isMapModePresented = false
     @State private var isLocationPermissionAlertPresented = false
     @State private var showsStationMarkers = true
     @State private var showsStationMarkerLabels = true
@@ -25,6 +26,7 @@ struct TrainMapTabView: View {
     @State private var trainListDragOffset: CGFloat = 0
     @State private var statsDragOffset: CGFloat = 0
     @State private var statusDragOffset: CGFloat = 0
+    @State private var mapModeDragOffset: CGFloat = 0
     @State private var mapMode: TrainMapMode = .standard
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
@@ -120,7 +122,7 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay {
-                if isTrainListPresented || isStatsPresented || isStatusPresented {
+                if isTrainListPresented || isStatsPresented || isStatusPresented || isMapModePresented {
                     Color.black.opacity(0.001)
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
@@ -133,6 +135,9 @@ struct TrainMapTabView: View {
                             }
                             if isStatusPresented {
                                 dismissStatus()
+                            }
+                            if isMapModePresented {
+                                dismissMapMode()
                             }
                         }
                 }
@@ -237,7 +242,40 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if !isTrainListPresented && !isStatsPresented && !isStatusPresented {
+                if isMapModePresented && !isTrainListPresented && !isStatsPresented && !isStatusPresented {
+                    mapModePanel
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 92)
+                        .offset(y: max(0, mapModeDragOffset))
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
+                        .gesture(
+                            DragGesture(minimumDistance: 8)
+                                .onChanged { value in
+                                    guard value.translation.height > 0 else {
+                                        mapModeDragOffset = 0
+                                        return
+                                    }
+
+                                    mapModeDragOffset = value.translation.height
+                                }
+                                .onEnded { value in
+                                    if value.translation.height > 120 || value.predictedEndTranslation.height > 180 {
+                                        dismissMapMode()
+                                    } else {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            mapModeDragOffset = 0
+                                        }
+                                    }
+                                }
+                        )
+                        .zIndex(2)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !isTrainListPresented && !isStatsPresented && !isStatusPresented && !isMapModePresented {
                     bottomControlBar
                         .padding(.horizontal, 16)
                         .padding(.bottom, 96)
@@ -468,20 +506,18 @@ struct TrainMapTabView: View {
     }
 
     private var mapModeButton: some View {
-        Menu {
-            ForEach(TrainMapMode.allCases) { mode in
-                Button {
-                    mapMode = mode
-                } label: {
-                    Label(mode.title, systemImage: mode.systemImage)
-                }
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                isMapModePresented.toggle()
+                mapModeDragOffset = 0
             }
         } label: {
             Image(systemName: mapMode.systemImage)
                 .font(.headline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 48, height: 48)
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Velg kartvisning")
     }
 
@@ -708,6 +744,20 @@ struct TrainMapTabView: View {
             handshake: connectionCenter.lastHandshake
         )
     }
+
+    private var mapModePanel: some View {
+        MapModePanel(selectedMode: mapMode) { mode in
+            mapMode = mode
+            dismissMapMode()
+        }
+    }
+
+    private func dismissMapMode() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            isMapModePresented = false
+            mapModeDragOffset = 0
+        }
+    }
 }
 
 private struct MapStatisticsPanel: View {
@@ -831,6 +881,66 @@ private struct MapStatisticsPanel: View {
                 .padding(.horizontal, 1)
             }
         }
+    }
+}
+
+private struct MapModePanel: View {
+    let selectedMode: TrainMapMode
+    let onSelectMode: (TrainMapMode) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 38, height: 5)
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity)
+
+            Text("Kartvisning")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            VStack(spacing: 8) {
+                ForEach(TrainMapMode.allCases) { mode in
+                    Button {
+                        onSelectMode(mode)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: mode.systemImage)
+                                .font(.headline)
+                                .frame(width: 24)
+
+                            Text(mode.title)
+                                .font(.subheadline.weight(.medium))
+
+                            Spacer(minLength: 8)
+
+                            if mode == selectedMode {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.accentColor)
+                            }
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 14)
+                        .background(AppTheme.surface.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(mode == selectedMode ? Color.accentColor.opacity(0.35) : AppTheme.border, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.18), radius: 20, y: 10)
     }
 }
 
@@ -1048,6 +1158,7 @@ private struct TrainListSheet: View {
                 }
                 .shadow(color: Color.black.opacity(0.16), radius: 20, y: 10)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .task(id: trainListFingerprint) {
             rebuildSearchIndex()

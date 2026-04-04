@@ -26,6 +26,30 @@ struct FavoriteStation: Codable, Identifiable, Hashable, Sendable {
         self.longitude = station.longitude
     }
 
+    init(
+        id: UUID,
+        name: String,
+        shortName: String,
+        plcCode: String?,
+        lastUpdated: Date?,
+        traseId: UUID?,
+        isBorderStation: Bool,
+        countryCode: String,
+        latitude: Double?,
+        longitude: Double?
+    ) {
+        self.id = id
+        self.name = name
+        self.shortName = shortName
+        self.plcCode = plcCode
+        self.lastUpdated = lastUpdated
+        self.traseId = traseId
+        self.isBorderStation = isBorderStation
+        self.countryCode = countryCode
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
     var station: TraseStation {
         TraseStation(
             id: id,
@@ -40,6 +64,43 @@ struct FavoriteStation: Codable, Identifiable, Hashable, Sendable {
             longitude: longitude
         )
     }
+
+    var storageKey: String {
+        Self.storageKey(shortName: shortName, countryCode: countryCode)
+    }
+
+    static func storageKey(shortName: String, countryCode: String) -> String {
+        let normalizedShortName = shortName.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let normalizedCountryCode = countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return "\(normalizedCountryCode)::\(normalizedShortName)"
+    }
+
+    static let defaultFavorites: [FavoriteStation] = [
+        FavoriteStation(
+            id: UUID(uuidString: "5E9B8F54-11A5-4F81-9F2B-7D5D42000001") ?? UUID(),
+            name: "OSL",
+            shortName: "OSL",
+            plcCode: "NO",
+            lastUpdated: nil,
+            traseId: nil,
+            isBorderStation: false,
+            countryCode: "NO",
+            latitude: nil,
+            longitude: nil
+        ),
+        FavoriteStation(
+            id: UUID(uuidString: "5E9B8F54-11A5-4F81-9F2B-7D5D42000002") ?? UUID(),
+            name: "Cst",
+            shortName: "Cst",
+            plcCode: "SE",
+            lastUpdated: nil,
+            traseId: nil,
+            isBorderStation: false,
+            countryCode: "SE",
+            latitude: nil,
+            longitude: nil
+        )
+    ]
 }
 
 @MainActor
@@ -56,33 +117,39 @@ final class FavoriteStationsStore {
     }
 
     func isFavorite(_ station: TraseStation) -> Bool {
-        favorites.contains(where: { $0.id == station.id })
+        let key = favoriteKey(for: station)
+        return favorites.contains(where: { $0.storageKey == key })
     }
 
     func toggle(_ station: TraseStation) {
-        if let index = favorites.firstIndex(where: { $0.id == station.id }) {
+        let key = favoriteKey(for: station)
+
+        if let index = favorites.firstIndex(where: { $0.storageKey == key }) {
             favorites.remove(at: index)
         } else {
             favorites.insert(FavoriteStation(station: station), at: 0)
         }
+        favorites = resolvedFavorites(from: favorites)
         persist()
     }
 
     func remove(_ favorite: FavoriteStation) {
-        favorites.removeAll { $0.id == favorite.id }
+        favorites.removeAll { $0.storageKey == favorite.storageKey }
+        favorites = resolvedFavorites(from: favorites)
         persist()
     }
 
     private func load() {
         guard let data = UserDefaults.standard.data(forKey: defaultsKey) else {
-            favorites = []
+            favorites = FavoriteStation.defaultFavorites
             return
         }
 
         do {
-            favorites = try JSONDecoder().decode([FavoriteStation].self, from: data)
+            let decodedFavorites = try JSONDecoder().decode([FavoriteStation].self, from: data)
+            favorites = resolvedFavorites(from: decodedFavorites)
         } catch {
-            favorites = []
+            favorites = FavoriteStation.defaultFavorites
         }
     }
 
@@ -93,5 +160,21 @@ final class FavoriteStationsStore {
         } catch {
             UserDefaults.standard.removeObject(forKey: defaultsKey)
         }
+    }
+
+    private func favoriteKey(for station: TraseStation) -> String {
+        FavoriteStation.storageKey(shortName: station.shortName, countryCode: station.countryCode)
+    }
+
+    private func deduplicatedFavorites(_ favorites: [FavoriteStation]) -> [FavoriteStation] {
+        var seenKeys = Set<String>()
+        return favorites.filter { favorite in
+            seenKeys.insert(favorite.storageKey).inserted
+        }
+    }
+
+    private func resolvedFavorites(from favorites: [FavoriteStation]) -> [FavoriteStation] {
+        let deduplicated = deduplicatedFavorites(favorites)
+        return deduplicated.isEmpty ? FavoriteStation.defaultFavorites : deduplicated
     }
 }

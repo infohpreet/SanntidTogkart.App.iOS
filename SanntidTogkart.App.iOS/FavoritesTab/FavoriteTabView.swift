@@ -17,8 +17,6 @@ struct FavoriteTabView: View {
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
-                            favoritesHeader
-
                             LazyVStack(spacing: 16) {
                                 ForEach(viewModel.cards) { card in
                                     favoriteCard(for: card)
@@ -38,50 +36,6 @@ struct FavoriteTabView: View {
         .task(id: favoriteStations.favorites) {
             await viewModel.refresh(favorites: favoriteStations.favorites)
         }
-    }
-
-    private var favoritesHeader: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Favorittstasjoner")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
-
-                Text("Se neste avgang og bla mellom meldinger direkte fra favorittene dine.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 12)
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text("\(favoriteStations.favorites.count)")
-                    .font(.title3.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.primary)
-
-                Text("stasjoner")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(
-                    LinearGradient(
-                        colors: [AppTheme.surface, AppTheme.background],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(AppTheme.border, lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
     }
 
     private func favoriteCard(for card: FavoriteStationCardState) -> some View {
