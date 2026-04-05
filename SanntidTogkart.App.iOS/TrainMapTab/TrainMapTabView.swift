@@ -290,7 +290,22 @@ struct TrainMapTabView: View {
                     return
                 }
 
+                guard navigationCenter.selectedDashboardTab == .map else {
+                    pendingStationSelectionRequest = request
+                    return
+                }
+
                 revealStationOnMap(request)
+            }
+            .onChange(of: navigationCenter.selectedDashboardTab) { _, selectedTab in
+                guard
+                    selectedTab == .map,
+                    let pendingStationSelectionRequest
+                else {
+                    return
+                }
+
+                revealStationOnMap(pendingStationSelectionRequest)
             }
             .onChange(of: viewModel.stations.count) { _, _ in
                 guard let pendingStationSelectionRequest else {
@@ -721,9 +736,10 @@ struct TrainMapTabView: View {
         pendingStationSelectionRequest = nil
         isSelectedTrainCardVisible = false
         viewModel.clearSelection()
-        selectedStationID = request.stationID
+        selectedStationID = nil
 
         guard let latitude = request.latitude, let longitude = request.longitude else {
+            selectedStationID = request.stationID
             return
         }
 
@@ -734,6 +750,14 @@ struct TrainMapTabView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
                 )
             )
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard pendingStationSelectionRequest == nil else {
+                return
+            }
+            selectedStationID = request.stationID
         }
     }
 
