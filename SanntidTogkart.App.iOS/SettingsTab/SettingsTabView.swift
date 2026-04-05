@@ -5,7 +5,7 @@ struct SettingsTabView: View {
     let user: EntraIDUser
     @Bindable var authSession: AuthSession
     let onLogout: () -> Void
-    @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.dark.rawValue
+    @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
     @State private var isSwitchingEnvironment = false
 

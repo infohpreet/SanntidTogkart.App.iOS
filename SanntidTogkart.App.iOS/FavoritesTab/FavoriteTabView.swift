@@ -41,14 +41,14 @@ struct FavoriteTabView: View {
     private func favoriteCard(for card: FavoriteStationCardState) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             NavigationLink {
-                StationMessagesView(station: card.favorite.station)
+                StationMessagesView(station: resolvedStation(for: card.favorite))
             } label: {
                 HStack(alignment: .center, spacing: 12) {
                     favoriteCountryFlagBadge(for: card.favorite)
 
                     VStack(alignment: .leading, spacing: 7) {
                         HStack(alignment: .center, spacing: 8) {
-                            Text(card.favorite.name)
+                            Text(displayFavoriteName(for: card.favorite))
                                 .font(.headline.weight(.semibold))
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
@@ -141,6 +141,26 @@ struct FavoriteTabView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 12, y: 6)
     }
 
+    private func displayFavoriteName(for favorite: FavoriteStation) -> String {
+        viewModel.displayStationName(for: favorite.shortName, countryCode: favorite.countryCode)
+            ?? favorite.name
+    }
+
+    private func resolvedStation(for favorite: FavoriteStation) -> TraseStation {
+        TraseStation(
+            id: favorite.id,
+            name: displayFavoriteName(for: favorite),
+            shortName: favorite.shortName,
+            plcCode: favorite.plcCode,
+            lastUpdated: favorite.lastUpdated,
+            traseId: favorite.traseId,
+            isBorderStation: favorite.isBorderStation,
+            countryCode: favorite.countryCode,
+            latitude: favorite.latitude,
+            longitude: favorite.longitude
+        )
+    }
+
     private var loadingMessageCard: some View {
         HStack(spacing: 10) {
             ProgressView()
@@ -197,6 +217,80 @@ struct FavoriteTabView: View {
         let isPast = isPastStationMessage(stationMessage)
 
         return VStack(alignment: .leading, spacing: 12) {
+            Group {
+                if let trainDetail {
+                    NavigationLink {
+                        TrainStationsView(trainMessage: trainDetail, title: "Togrute")
+                    } label: {
+                        upcomingMessageSummaryContent(
+                            stationMessage: stationMessage,
+                            trainDetail: trainDetail,
+                            isPast: isPast
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    upcomingMessageSummaryContent(
+                        stationMessage: stationMessage,
+                        trainDetail: trainDetail,
+                        isPast: isPast
+                    )
+                }
+            }
+
+            HStack(alignment: .center, spacing: 10) {
+                Button {
+                    viewModel.moveSelection(for: card.favorite.id, direction: -1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(card.canGoBackward ? Color.accentColor : .secondary.opacity(0.45))
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.surface, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(AppTheme.border, lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(!card.canGoBackward)
+
+                VStack(spacing: 3) {
+                    Text("Melding \(card.selectedIndex + 1) av \(card.messages.count)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+
+                Button {
+                    viewModel.moveSelection(for: card.favorite.id, direction: 1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(card.canGoForward ? Color.accentColor : .secondary.opacity(0.45))
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.surface, in: Circle())
+                        .overlay {
+                            Circle()
+                                .stroke(AppTheme.border, lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(!card.canGoForward)
+            }
+        }
+        .padding(12)
+        .opacity(isPast ? 0.72 : 1)
+    }
+
+    private func upcomingMessageSummaryContent(
+        stationMessage: StationMessage,
+        trainDetail: TrainMessage?,
+        isPast: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let lineNumber = normalizedText(trainDetail?.lineNumber) {
                     Text(lineNumber)
@@ -287,50 +381,7 @@ struct FavoriteTabView: View {
                 infoColumn(title: "Faktisk", value: actualTime(for: stationMessage))
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-
-            HStack(alignment: .center, spacing: 10) {
-                Button {
-                    viewModel.moveSelection(for: card.favorite.id, direction: -1)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(card.canGoBackward ? Color.accentColor : .secondary.opacity(0.45))
-                        .frame(width: 36, height: 36)
-                        .background(AppTheme.surface, in: Circle())
-                        .overlay {
-                            Circle()
-                                .stroke(AppTheme.border, lineWidth: 1)
-                        }
-                }
-                .buttonStyle(.plain)
-                .disabled(!card.canGoBackward)
-
-                VStack(spacing: 3) {
-                    Text("Melding \(card.selectedIndex + 1) av \(card.messages.count)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-
-                Button {
-                    viewModel.moveSelection(for: card.favorite.id, direction: 1)
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(card.canGoForward ? Color.accentColor : .secondary.opacity(0.45))
-                        .frame(width: 36, height: 36)
-                        .background(AppTheme.surface, in: Circle())
-                        .overlay {
-                            Circle()
-                                .stroke(AppTheme.border, lineWidth: 1)
-                        }
-                }
-                .buttonStyle(.plain)
-                .disabled(!card.canGoForward)
-            }
         }
-        .padding(12)
-        .opacity(isPast ? 0.72 : 1)
     }
 
     private func infoColumn(title: String, value: String) -> some View {

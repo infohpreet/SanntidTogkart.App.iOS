@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var authSession = AuthSession()
-    @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.dark.rawValue
+    @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
 
     var body: some View {
         Group {

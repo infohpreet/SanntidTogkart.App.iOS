@@ -1,9 +1,9 @@
 import SwiftUI
 
 enum AppAppearanceMode: String, CaseIterable, Identifiable {
+    case system
     case dark
     case light
-    case system
 
     var id: String { rawValue }
 
