@@ -101,6 +101,7 @@ struct TrainMapTabView: View {
                     SelectedTrainCard(
                         train: selectedTrain,
                         routeText: viewModel.displayRoute(for: selectedTrain),
+                        distanceText: distanceText(for: selectedTrain),
                         onOpenRoute: {
                             trainForStationsView = selectedTrain
                             isTrainStationsViewPresented = true
@@ -445,6 +446,28 @@ struct TrainMapTabView: View {
             longitude: currentLocation.longitude
         )
         let distance = userLocation.distance(from: stationLocation)
+
+        if distance < 1000 {
+            return "\(Int(distance.rounded())) m"
+        }
+
+        return String(format: "%.1f km", distance / 1000)
+    }
+
+    private func distanceText(for train: TrainMessage) -> String? {
+        guard
+            let currentLocation = locationManager.currentLocation,
+            let coordinate = viewModel.mapCoordinate(for: train)
+        else {
+            return nil
+        }
+
+        let trainLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let userLocation = CLLocation(
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude
+        )
+        let distance = userLocation.distance(from: trainLocation)
 
         if distance < 1000 {
             return "\(Int(distance.rounded())) m"
@@ -1556,6 +1579,7 @@ private struct TrainMapAnnotation: View {
 private struct SelectedTrainCard: View {
     let train: TrainMessage
     let routeText: String
+    let distanceText: String?
     let onOpenRoute: () -> Void
     let onClear: () -> Void
 
@@ -1600,13 +1624,8 @@ private struct SelectedTrainCard: View {
                                 .lineLimit(1)
                         }
                     }
-
-                    Text(routeText)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Spacer(minLength: 8)
 
@@ -1620,6 +1639,23 @@ private struct SelectedTrainCard: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Fjern valgt tog")
             }
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(routeText)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let distanceText {
+                    Text(distanceText)
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(alignment: .top, spacing: 20) {
                 TrainInfoColumn(title: "Origin Time", value: displayOriginTime(for: train))
