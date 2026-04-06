@@ -1671,11 +1671,17 @@ private struct SelectedTrainCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let distanceText {
-                    Text(distanceText)
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
+                    HStack(spacing: 4) {
+                        Image(systemName: "flag.checkered")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        Text(distanceText)
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
