@@ -101,7 +101,7 @@ struct TrainMapTabView: View {
                     SelectedTrainCard(
                         train: selectedTrain,
                         routeText: viewModel.displayRoute(for: selectedTrain),
-                        distanceText: distanceText(for: selectedTrain),
+                        distanceText: viewModel.selectedTrainRemainingDistanceText,
                         onOpenRoute: {
                             trainForStationsView = selectedTrain
                             isTrainStationsViewPresented = true
@@ -467,28 +467,6 @@ struct TrainMapTabView: View {
             longitude: currentLocation.longitude
         )
         let distance = userLocation.distance(from: stationLocation)
-
-        if distance < 1000 {
-            return "\(Int(distance.rounded())) m"
-        }
-
-        return String(format: "%.1f km", distance / 1000)
-    }
-
-    private func distanceText(for train: TrainMessage) -> String? {
-        guard
-            let currentLocation = locationManager.currentLocation,
-            let coordinate = viewModel.mapCoordinate(for: train)
-        else {
-            return nil
-        }
-
-        let trainLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        let userLocation = CLLocation(
-            latitude: currentLocation.latitude,
-            longitude: currentLocation.longitude
-        )
-        let distance = userLocation.distance(from: trainLocation)
 
         if distance < 1000 {
             return "\(Int(distance.rounded())) m"

@@ -316,6 +316,35 @@ final class TrainMapTabViewModel {
         return String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
     }
 
+    var selectedTrainRemainingDistanceText: String? {
+        guard selectedTrainFutureRouteCoordinates.count > 1 else {
+            return nil
+        }
+
+        var totalDistance: CLLocationDistance = 0
+
+        for index in 1..<selectedTrainFutureRouteCoordinates.count {
+            let previousCoordinate = selectedTrainFutureRouteCoordinates[index - 1]
+            let nextCoordinate = selectedTrainFutureRouteCoordinates[index]
+            let previousLocation = CLLocation(
+                latitude: previousCoordinate.latitude,
+                longitude: previousCoordinate.longitude
+            )
+            let nextLocation = CLLocation(
+                latitude: nextCoordinate.latitude,
+                longitude: nextCoordinate.longitude
+            )
+
+            totalDistance += previousLocation.distance(from: nextLocation)
+        }
+
+        if totalDistance < 1000 {
+            return "\(Int(totalDistance.rounded())) m"
+        }
+
+        return String(format: "%.1f km", totalDistance / 1000)
+    }
+
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
         let originCode = normalizedText(trainMessage.origin)
         let destinationCode = normalizedText(trainMessage.destination)
