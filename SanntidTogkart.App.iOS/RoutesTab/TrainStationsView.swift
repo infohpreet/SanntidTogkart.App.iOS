@@ -6,6 +6,7 @@ struct TrainStationsView: View {
     let title: String
 
     @State private var viewModel = TrainStationsViewModel()
+    @State private var hasAutoScrolledToLatestPassedStation = false
 
     var body: some View {
         Group {
@@ -25,19 +26,28 @@ struct TrainStationsView: View {
                     description: Text("Ingen meldinger ble returnert for dette toget.")
                 )
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        trainInfoCard
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            trainInfoCard
 
-                        ForEach(viewModel.stationMessages) { stationMessage in
-                            stationMessageRow(stationMessage)
+                            ForEach(viewModel.stationMessages) { stationMessage in
+                                stationMessageRow(stationMessage)
+                                    .id(stationMessage.id)
+                            }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-                .refreshable {
-                    await viewModel.refresh(for: trainMessage)
+                    .refreshable {
+                        await viewModel.refresh(for: trainMessage)
+                    }
+                    .onAppear {
+                        scrollToLatestPassedStationIfNeeded(with: scrollProxy)
+                    }
+                    .onChange(of: viewModel.stationMessages.map(\.id)) { _, _ in
+                        scrollToLatestPassedStationIfNeeded(with: scrollProxy)
+                    }
                 }
             }
         }
@@ -45,6 +55,29 @@ struct TrainStationsView: View {
         .navigationTitle(title)
         .task {
             await viewModel.start(for: trainMessage)
+        }
+    }
+
+    private var latestPassedStationMessageID: Int? {
+        let latestPassedStationMessage: StationMessage? = viewModel.stationMessages.last { stationMessage in
+            isPastStationMessage(stationMessage)
+        }
+
+        return latestPassedStationMessage?.id
+    }
+
+    private func scrollToLatestPassedStationIfNeeded(with scrollProxy: ScrollViewProxy) {
+        guard !hasAutoScrolledToLatestPassedStation,
+              let latestPassedStationMessageID else {
+            return
+        }
+
+        hasAutoScrolledToLatestPassedStation = true
+
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                scrollProxy.scrollTo(latestPassedStationMessageID, anchor: .top)
+            }
         }
     }
 

@@ -6,6 +6,7 @@ struct StationMessagesView: View {
 
     @State private var favoriteStations = FavoriteStationsStore.shared
     @State private var viewModel = StationMessagesViewModel()
+    @State private var hasAutoScrolledToLatestPassedStation = false
 
     var body: some View {
         Group {
@@ -25,19 +26,28 @@ struct StationMessagesView: View {
                     description: Text("Ingen meldinger ble returnert for denne stasjonen.")
                 )
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        stationInfoCard
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            stationInfoCard
 
-                        ForEach(viewModel.stationMessages) { stationMessage in
-                            stationMessageRow(stationMessage)
+                            ForEach(viewModel.stationMessages) { stationMessage in
+                                stationMessageRow(stationMessage)
+                                    .id(stationMessage.id)
+                            }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-                .refreshable {
-                    await viewModel.refresh(for: station)
+                    .refreshable {
+                        await viewModel.refresh(for: station)
+                    }
+                    .onAppear {
+                        scrollToLatestPassedStationIfNeeded(with: scrollProxy)
+                    }
+                    .onChange(of: viewModel.stationMessages.map(\.id)) { _, _ in
+                        scrollToLatestPassedStationIfNeeded(with: scrollProxy)
+                    }
                 }
             }
         }
@@ -45,6 +55,29 @@ struct StationMessagesView: View {
         .navigationTitle(station.name)
         .task {
             await viewModel.start(for: station)
+        }
+    }
+
+    private var latestPassedStationMessageID: Int? {
+        let latestPassedStationMessage: StationMessage? = viewModel.stationMessages.last { stationMessage in
+            isPastStationMessage(stationMessage)
+        }
+
+        return latestPassedStationMessage?.id
+    }
+
+    private func scrollToLatestPassedStationIfNeeded(with scrollProxy: ScrollViewProxy) {
+        guard !hasAutoScrolledToLatestPassedStation,
+              let latestPassedStationMessageID else {
+            return
+        }
+
+        hasAutoScrolledToLatestPassedStation = true
+
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                scrollProxy.scrollTo(latestPassedStationMessageID, anchor: .top)
+            }
         }
     }
 
