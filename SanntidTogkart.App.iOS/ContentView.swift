@@ -10,6 +10,9 @@ import SwiftUI
 struct ContentView: View {
     @State private var authSession = AuthSession()
     @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
+    @AppStorage("hasSeenAppIntroduction") private var hasSeenAppIntroduction = false
+    @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
+    @State private var isShowingIntroduction = false
 
     var body: some View {
         Group {
@@ -25,7 +28,22 @@ struct ContentView: View {
         .task {
             await authSession.restoreSessionIfNeeded()
         }
+        .task(id: activeUser?.username) {
+            guard activeUser != nil, shouldPresentIntroduction else {
+                isShowingIntroduction = false
+                return
+            }
+
+            isShowingIntroduction = true
+        }
         .preferredColorScheme(appAppearanceMode.colorScheme)
+        .fullScreenCover(isPresented: $isShowingIntroduction) {
+            AppIntroductionView(onFinish: {
+                hasSeenAppIntroduction = true
+                showAppIntroductionOnNextLaunch = false
+                isShowingIntroduction = false
+            })
+        }
     }
 
     private var activeUser: EntraIDUser? {
@@ -43,6 +61,10 @@ struct ContentView: View {
 
     private var appAppearanceMode: AppAppearanceMode {
         AppAppearanceMode(rawValue: appAppearanceModeRawValue) ?? .system
+    }
+
+    private var shouldPresentIntroduction: Bool {
+        !hasSeenAppIntroduction || showAppIntroductionOnNextLaunch
     }
 }
 

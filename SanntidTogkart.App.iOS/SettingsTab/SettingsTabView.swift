@@ -6,6 +6,7 @@ struct SettingsTabView: View {
     @Bindable var authSession: AuthSession
     let onLogout: () -> Void
     @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
+    @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
     @State private var isSwitchingEnvironment = false
 
@@ -17,6 +18,7 @@ struct SettingsTabView: View {
                     accountCard
                     appearanceCard
                     environmentCard
+                    onboardingCard
                     securityCard
                     actionCard
                 }
@@ -109,6 +111,26 @@ struct SettingsTabView: View {
                     Spacer()
                 }
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var onboardingCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Introduksjon", systemImage: "sparkles.rectangle.stack")
+                .font(.headline)
+
+            Text("Slå på dette hvis du vil se appintroduksjonen neste gang appen startes.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Toggle(isOn: $showAppIntroductionOnNextLaunch) {
+                Label("Vis ved neste appstart", systemImage: showAppIntroductionOnNextLaunch ? "play.rectangle.on.rectangle.fill" : "play.rectangle.on.rectangle")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(.accentColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
