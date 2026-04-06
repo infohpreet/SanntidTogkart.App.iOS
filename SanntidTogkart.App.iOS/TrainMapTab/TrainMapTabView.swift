@@ -421,9 +421,15 @@ struct TrainMapTabView: View {
                             toggleSelection(for: train)
                         } label: {
                             if isCountryZoomedOut {
-                                TrainMapDotAnnotation(isHighlighted: train.id == viewModel.selectedTrainMessageID)
+                                TrainMapDotAnnotation(
+                                    trainType: train.trainType,
+                                    isHighlighted: train.id == viewModel.selectedTrainMessageID
+                                )
                             } else {
-                                TrainMapAnnotation(isHighlighted: train.id == viewModel.selectedTrainMessageID)
+                                TrainMapAnnotation(
+                                    trainType: train.trainType,
+                                    isHighlighted: train.id == viewModel.selectedTrainMessageID
+                                )
                             }
                         }
                         .buttonStyle(.plain)
@@ -1477,11 +1483,12 @@ private struct StationMapDotAnnotation: View {
 }
 
 private struct TrainMapDotAnnotation: View {
+    let trainType: String?
     let isHighlighted: Bool
 
     var body: some View {
         Circle()
-            .fill(isHighlighted ? Color.orange : Color.accentColor)
+            .fill(isHighlighted ? Color.orange : trainMarkerColor(for: trainType))
             .frame(width: isHighlighted ? 9 : 7, height: isHighlighted ? 9 : 7)
             .overlay {
                 Circle()
@@ -1567,6 +1574,7 @@ private struct StationMapAnnotation: View {
 }
 
 private struct TrainMapAnnotation: View {
+    let trainType: String?
     let isHighlighted: Bool
 
     var body: some View {
@@ -1596,7 +1604,20 @@ private struct TrainMapAnnotation: View {
     }
 
     private var markerColor: Color {
-        isHighlighted ? .orange : .accentColor
+        isHighlighted ? .orange : trainMarkerColor(for: trainType)
+    }
+}
+
+private func trainMarkerColor(for trainType: String?) -> Color {
+    let normalizedTrainType = trainType?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .uppercased()
+
+    switch normalizedTrainType {
+    case "SPFG", "GT":
+        return .green
+    default:
+        return .accentColor
     }
 }
 
