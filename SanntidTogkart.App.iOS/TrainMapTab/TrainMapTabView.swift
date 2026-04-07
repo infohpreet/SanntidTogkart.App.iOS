@@ -31,6 +31,7 @@ struct TrainMapTabView: View {
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
     @State private var pendingStationSelectionRequest: StationMapSelectionRequest?
+    @State private var presentedTrainListSnapshot: [TrainMessage] = []
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
         span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
@@ -386,7 +387,7 @@ struct TrainMapTabView: View {
 
     @MapContentBuilder
     private var stationAnnotationContent: some MapContent {
-        if showsStationMarkers {
+        if showsStationMarkers && !isTrainListPresented {
             ForEach(renderedStations) { station in
                 Annotation(showsStationMarkerLabels ? stationAnnotationTitle(for: station) : "", coordinate: station.coordinate) {
                     Button {
@@ -416,7 +417,7 @@ struct TrainMapTabView: View {
 
     @MapContentBuilder
     private var trainAnnotationContent: some MapContent {
-        if showsTrainMarkers {
+        if showsTrainMarkers && !isTrainListPresented {
             ForEach(renderedTrains) { train in
                 if let coordinate = viewModel.mapCoordinate(for: train) {
                     Annotation(viewModel.displayLineNumber(for: train), coordinate: coordinate) {
@@ -613,6 +614,9 @@ struct TrainMapTabView: View {
     private var trainListButton: some View {
         Button {
             withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                if !isTrainListPresented {
+                    presentedTrainListSnapshot = viewModel.trainMessages
+                }
                 isTrainListPresented.toggle()
             }
         } label: {
@@ -645,7 +649,7 @@ struct TrainMapTabView: View {
 
     private var trainListSheet: some View {
         TrainListSheet(
-            trains: viewModel.trainMessages,
+            trains: presentedTrainListSnapshot,
             displayRoute: { viewModel.displayRoute(for: $0) },
             searchTokens: { viewModel.searchTokens(for: $0) },
             onSelectTrain: { train in
@@ -753,6 +757,7 @@ struct TrainMapTabView: View {
             isTrainListPresented = false
             trainListDragOffset = 0
         }
+        presentedTrainListSnapshot = []
     }
 
     private func dismissStats() {
