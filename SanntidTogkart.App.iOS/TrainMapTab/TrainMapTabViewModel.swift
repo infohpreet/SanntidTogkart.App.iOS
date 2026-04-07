@@ -19,6 +19,10 @@ final class TrainMapTabViewModel {
     var selectedTrainMessageID: Int?
     var selectedTrainRouteCoordinates: [CLLocationCoordinate2D] = []
     var selectedTrainFutureRouteCoordinates: [CLLocationCoordinate2D] = []
+    var selectedTrainRemainingDistance: CLLocationDistance?
+    var selectedTrainTotalRouteDistance: CLLocationDistance?
+    var selectedTrainRouteProgress: Double?
+    var selectedTrainPassedDistanceText: String?
     var errorMessage: String?
     var isLoading = false
 
@@ -274,6 +278,10 @@ final class TrainMapTabViewModel {
         selectedTrainMessageID = nil
         selectedTrainRouteCoordinates = []
         selectedTrainFutureRouteCoordinates = []
+        selectedTrainRemainingDistance = nil
+        selectedTrainTotalRouteDistance = nil
+        selectedTrainRouteProgress = nil
+        selectedTrainPassedDistanceText = nil
         selectedTrainStations = []
         selectedTrainRouteRequest = nil
     }
@@ -320,53 +328,8 @@ final class TrainMapTabViewModel {
         formattedDistanceText(for: selectedTrainRemainingDistance)
     }
 
-    var selectedTrainRemainingDistance: CLLocationDistance? {
-        distance(for: selectedTrainFutureRouteCoordinates)
-    }
-
-    var selectedTrainTotalRouteDistance: CLLocationDistance? {
-        guard let selectedTrain else {
-            return nil
-        }
-
-        var routeCoordinates = selectedTrainStations.compactMap {
-            coordinateForStation(named: $0.city, countryCode: $0.countryCode)
-        }
-
-        if let destination = normalizedText(selectedTrain.destination),
-           let destinationCoordinate = coordinateForStation(named: destination, countryCode: selectedTrain.countryCode) {
-            appendCoordinate(destinationCoordinate, to: &routeCoordinates)
-        }
-
-        return distance(for: routeCoordinates.removingSequentialDuplicates())
-    }
-
     var selectedTrainTotalRouteDistanceText: String? {
         formattedDistanceText(for: selectedTrainTotalRouteDistance)
-    }
-
-    var selectedTrainRouteProgress: Double? {
-        guard
-            let totalDistance = selectedTrainTotalRouteDistance,
-            let remainingDistance = selectedTrainRemainingDistance,
-            totalDistance > 0
-        else {
-            return nil
-        }
-
-        let traveledDistance = max(0, totalDistance - remainingDistance)
-        return min(max(traveledDistance / totalDistance, 0), 1)
-    }
-
-    var selectedTrainPassedDistanceText: String? {
-        guard
-            let totalDistance = selectedTrainTotalRouteDistance,
-            let remainingDistance = selectedTrainRemainingDistance
-        else {
-            return nil
-        }
-
-        return formattedDistanceText(for: max(0, totalDistance - remainingDistance))
     }
 
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
@@ -424,6 +387,10 @@ final class TrainMapTabViewModel {
     private func rebuildSelectedTrainFutureRoute() {
         guard let selectedTrain else {
             selectedTrainFutureRouteCoordinates = []
+            selectedTrainRemainingDistance = nil
+            selectedTrainTotalRouteDistance = nil
+            selectedTrainRouteProgress = nil
+            selectedTrainPassedDistanceText = nil
             return
         }
 
@@ -446,6 +413,31 @@ final class TrainMapTabViewModel {
         }
 
         selectedTrainFutureRouteCoordinates = coordinates.count > 1 ? coordinates : []
+
+        var routeCoordinates = selectedTrainStations.compactMap {
+            coordinateForStation(named: $0.city, countryCode: $0.countryCode)
+        }
+
+        if let destination = normalizedText(selectedTrain.destination),
+           let destinationCoordinate = coordinateForStation(named: destination, countryCode: selectedTrain.countryCode) {
+            appendCoordinate(destinationCoordinate, to: &routeCoordinates)
+        }
+
+        selectedTrainRemainingDistance = distance(for: selectedTrainFutureRouteCoordinates)
+        selectedTrainTotalRouteDistance = distance(for: routeCoordinates.removingSequentialDuplicates())
+
+        if
+            let totalDistance = selectedTrainTotalRouteDistance,
+            let remainingDistance = selectedTrainRemainingDistance,
+            totalDistance > 0
+        {
+            let traveledDistance = max(0, totalDistance - remainingDistance)
+            selectedTrainRouteProgress = min(max(traveledDistance / totalDistance, 0), 1)
+            selectedTrainPassedDistanceText = formattedDistanceText(for: traveledDistance)
+        } else {
+            selectedTrainRouteProgress = nil
+            selectedTrainPassedDistanceText = nil
+        }
     }
 
     private func coordinate(for trainPosition: TrainPosition?) -> CLLocationCoordinate2D? {
