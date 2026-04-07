@@ -317,32 +317,56 @@ final class TrainMapTabViewModel {
     }
 
     var selectedTrainRemainingDistanceText: String? {
-        guard selectedTrainFutureRouteCoordinates.count > 1 else {
+        formattedDistanceText(for: selectedTrainRemainingDistance)
+    }
+
+    var selectedTrainRemainingDistance: CLLocationDistance? {
+        distance(for: selectedTrainFutureRouteCoordinates)
+    }
+
+    var selectedTrainTotalRouteDistance: CLLocationDistance? {
+        guard let selectedTrain else {
             return nil
         }
 
-        var totalDistance: CLLocationDistance = 0
-
-        for index in 1..<selectedTrainFutureRouteCoordinates.count {
-            let previousCoordinate = selectedTrainFutureRouteCoordinates[index - 1]
-            let nextCoordinate = selectedTrainFutureRouteCoordinates[index]
-            let previousLocation = CLLocation(
-                latitude: previousCoordinate.latitude,
-                longitude: previousCoordinate.longitude
-            )
-            let nextLocation = CLLocation(
-                latitude: nextCoordinate.latitude,
-                longitude: nextCoordinate.longitude
-            )
-
-            totalDistance += previousLocation.distance(from: nextLocation)
+        var routeCoordinates = selectedTrainStations.compactMap {
+            coordinateForStation(named: $0.city, countryCode: $0.countryCode)
         }
 
-        if totalDistance < 1000 {
-            return "\(Int(totalDistance.rounded())) m"
+        if let destination = normalizedText(selectedTrain.destination),
+           let destinationCoordinate = coordinateForStation(named: destination, countryCode: selectedTrain.countryCode) {
+            appendCoordinate(destinationCoordinate, to: &routeCoordinates)
         }
 
-        return String(format: "%.1f km", totalDistance / 1000)
+        return distance(for: routeCoordinates.removingSequentialDuplicates())
+    }
+
+    var selectedTrainTotalRouteDistanceText: String? {
+        formattedDistanceText(for: selectedTrainTotalRouteDistance)
+    }
+
+    var selectedTrainRouteProgress: Double? {
+        guard
+            let totalDistance = selectedTrainTotalRouteDistance,
+            let remainingDistance = selectedTrainRemainingDistance,
+            totalDistance > 0
+        else {
+            return nil
+        }
+
+        let traveledDistance = max(0, totalDistance - remainingDistance)
+        return min(max(traveledDistance / totalDistance, 0), 1)
+    }
+
+    var selectedTrainPassedDistanceText: String? {
+        guard
+            let totalDistance = selectedTrainTotalRouteDistance,
+            let remainingDistance = selectedTrainRemainingDistance
+        else {
+            return nil
+        }
+
+        return formattedDistanceText(for: max(0, totalDistance - remainingDistance))
     }
 
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
@@ -491,6 +515,41 @@ final class TrainMapTabViewModel {
         normalizedText(trainMessage.company)
             ?? normalizedText(trainMessage.trainPosition?.toc)
             ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef)
+    }
+
+    private func distance(for coordinates: [CLLocationCoordinate2D]) -> CLLocationDistance? {
+        guard coordinates.count > 1 else {
+            return nil
+        }
+
+        var totalDistance: CLLocationDistance = 0
+
+        for index in 1..<coordinates.count {
+            let previousLocation = CLLocation(
+                latitude: coordinates[index - 1].latitude,
+                longitude: coordinates[index - 1].longitude
+            )
+            let nextLocation = CLLocation(
+                latitude: coordinates[index].latitude,
+                longitude: coordinates[index].longitude
+            )
+
+            totalDistance += previousLocation.distance(from: nextLocation)
+        }
+
+        return totalDistance
+    }
+
+    private func formattedDistanceText(for distance: CLLocationDistance?) -> String? {
+        guard let distance else {
+            return nil
+        }
+
+        if distance < 1000 {
+            return "\(Int(distance.rounded())) m"
+        }
+
+        return String(format: "%.1f km", distance / 1000)
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D, to coordinates: inout [CLLocationCoordinate2D]) {

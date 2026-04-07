@@ -102,6 +102,9 @@ struct TrainMapTabView: View {
                         train: selectedTrain,
                         routeText: viewModel.displayRoute(for: selectedTrain),
                         distanceText: viewModel.selectedTrainRemainingDistanceText,
+                        totalDistanceText: viewModel.selectedTrainTotalRouteDistanceText,
+                        passedDistanceText: viewModel.selectedTrainPassedDistanceText,
+                        progress: viewModel.selectedTrainRouteProgress,
                         onOpenRoute: {
                             trainForStationsView = selectedTrain
                             isTrainStationsViewPresented = true
@@ -1603,6 +1606,9 @@ private struct SelectedTrainCard: View {
     let train: TrainMessage
     let routeText: String
     let distanceText: String?
+    let totalDistanceText: String?
+    let passedDistanceText: String?
+    let progress: Double?
     let onOpenRoute: () -> Void
     let onClear: () -> Void
 
@@ -1694,16 +1700,13 @@ private struct SelectedTrainCard: View {
                 TrainInfoColumn(title: "Koordinater", value: displayCoordinateText(for: train), alignment: .trailing)
             }
 
-            HStack {
-                Spacer(minLength: 0)
-
-                Button("Togrute") {
-                    onOpenRoute()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-
-                Spacer(minLength: 0)
+            if let totalDistanceText, let progress {
+                RouteProgressView(
+                    progress: progress,
+                    totalDistanceText: totalDistanceText,
+                    passedDistanceText: passedDistanceText,
+                    onOpenRoute: onOpenRoute
+                )
             }
         }
         .padding(16)
@@ -1717,6 +1720,62 @@ private struct SelectedTrainCard: View {
                 .stroke(Color.white.opacity(0.45), lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.14), radius: 18, y: 8)
+    }
+}
+
+private struct RouteProgressView: View {
+    let progress: Double
+    let totalDistanceText: String
+    let passedDistanceText: String?
+    let onOpenRoute: () -> Void
+
+    var body: some View {
+        VStack(spacing: 5) {
+            GeometryReader { geometry in
+                let clampedProgress = min(max(progress, 0), 1)
+                let markerCenterX = max(10, min(geometry.size.width - 10, geometry.size.width * clampedProgress))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.12))
+                        .frame(height: 4)
+
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.30))
+                        .frame(width: max(4, geometry.size.width * clampedProgress), height: 4)
+
+                    Button(action: onOpenRoute) {
+                        Image(systemName: "tram.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 20, height: 20)
+                            .background(.thinMaterial, in: Circle())
+                            .overlay {
+                                Circle()
+                                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                            }
+                            .shadow(color: Color.black.opacity(0.12), radius: 4, y: 2)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Apne togrute")
+                    .position(x: markerCenterX, y: 10)
+                }
+            }
+            .frame(height: 20)
+
+            HStack {
+                Text(passedDistanceText ?? "0 km")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 12)
+
+                Text(totalDistanceText)
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
