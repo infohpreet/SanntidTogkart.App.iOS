@@ -318,9 +318,14 @@ struct TrainMapTabView: View {
 
                 revealStationOnMap(pendingStationSelectionRequest)
             }
-            .refreshable {
-                await viewModel.refresh()
-            }
+            .modifier(
+                RootMapRefreshModifier(
+                    isEnabled: !isTrainListPresented && !isStatsPresented && !isStatusPresented && !isMapModePresented,
+                    refresh: {
+                        await viewModel.refresh()
+                    }
+                )
+            )
             .ignoresSafeArea(edges: .bottom)
             .navigationDestination(isPresented: $isTrainStationsViewPresented) {
                 if let trainForStationsView {
@@ -818,6 +823,22 @@ struct TrainMapTabView: View {
         withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
             isMapModePresented = false
             mapModeDragOffset = 0
+        }
+    }
+}
+
+private struct RootMapRefreshModifier: ViewModifier {
+    let isEnabled: Bool
+    let refresh: () async -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.refreshable {
+                await refresh()
+            }
+        } else {
+            content
         }
     }
 }
