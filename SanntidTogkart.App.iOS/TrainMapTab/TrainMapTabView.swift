@@ -31,7 +31,7 @@ struct TrainMapTabView: View {
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
     @State private var pendingStationSelectionRequest: StationMapSelectionRequest?
-    @State private var presentedTrainListSnapshot: [TrainMessage] = []
+    @State private var presentedTrainListEntries: [TrainListEntry] = []
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
         span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
@@ -615,7 +615,7 @@ struct TrainMapTabView: View {
         Button {
             withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                 if !isTrainListPresented {
-                    presentedTrainListSnapshot = viewModel.trainMessages
+                    presentedTrainListEntries = makeTrainListEntries()
                 }
                 isTrainListPresented.toggle()
             }
@@ -649,9 +649,10 @@ struct TrainMapTabView: View {
 
     private var trainListSheet: some View {
         TrainListSheet(
-            trains: presentedTrainListSnapshot,
-            displayRoute: { viewModel.displayRoute(for: $0) },
-            searchTokens: { viewModel.searchTokens(for: $0) },
+            entries: presentedTrainListEntries,
+            onRefresh: {
+                presentedTrainListEntries = makeTrainListEntries()
+            },
             onSelectTrain: { train in
                 selectTrain(train)
             },
@@ -757,7 +758,21 @@ struct TrainMapTabView: View {
             isTrainListPresented = false
             trainListDragOffset = 0
         }
-        presentedTrainListSnapshot = []
+        presentedTrainListEntries = []
+    }
+
+    private func makeTrainListEntries() -> [TrainListEntry] {
+        viewModel.trainMessages.map { train in
+            TrainListEntry(
+                train: train,
+                routeText: viewModel.displayRoute(for: train),
+                searchTokens: viewModel.searchTokens(for: train),
+                displayLineNumber: normalizedText(train.lineNumber),
+                displayTrainNumber: viewModel.displayTrainNumber(for: train),
+                displayCompany: normalizedText(viewModel.displayCompany(for: train)),
+                trainType: normalizedText(train.trainType)
+            )
+        }
     }
 
     private func dismissStats() {
@@ -1002,8 +1017,6 @@ private struct ConnectionStatusPanel: View {
                 .frame(maxWidth: .infinity)
 
             HStack(spacing: 10) {
-                ConnectionStatusDot(state: state)
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text(state.description)
                         .font(.headline.weight(.semibold))
@@ -1073,7 +1086,7 @@ private struct ConnectionStatusPanel: View {
     }
 
     private func handshakeCard(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -1093,6 +1106,7 @@ private struct ConnectionStatusPanel: View {
                 .stroke(AppTheme.border, lineWidth: 1)
         }
     }
+
 }
 
 private struct MapStatisticsCountryFlagBadge: View {
@@ -1166,15 +1180,12 @@ private struct MapStatisticsSwedenFlagBadge: View {
 }
 
 private struct TrainListSheet: View {
-    let trains: [TrainMessage]
-    let displayRoute: (TrainMessage) -> String
-    let searchTokens: (TrainMessage) -> [String]
+    let entries: [TrainListEntry]
+    let onRefresh: () -> Void
     let onSelectTrain: (TrainMessage) -> Void
     let onClearSelection: () -> Void
 
     @State private var searchText = ""
-    @State private var indexedTrains: [TrainListEntry] = []
-    @State private var displayedTrainList: [TrainListEntry] = []
     private let drawerContentHeightRatio: CGFloat = 0.5
 
     var body: some View {
@@ -1202,12 +1213,6 @@ private struct TrainListSheet: View {
                 .shadow(color: Color.black.opacity(0.16), radius: 20, y: 10)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        }
-        .task(id: trainListFingerprint) {
-            rebuildSearchIndex()
-        }
-        .onChange(of: searchText) { _, _ in
-            applySearch()
         }
     }
 
@@ -1261,6 +1266,9 @@ private struct TrainListSheet: View {
                 }
                 .padding(.horizontal, 2)
             }
+            .refreshable {
+                onRefresh()
+            }
             .frame(height: drawerContentHeight)
         } else {
             VStack {
@@ -1281,17 +1289,15 @@ private struct TrainListSheet: View {
     }
 
     private func trainListRow(_ entry: TrainListEntry) -> some View {
-        let train = entry.train
-
         return Button {
-            onSelectTrain(train)
+            onSelectTrain(entry.train)
         } label: {
             HStack(alignment: .center, spacing: 12) {
-                TrainListCountryFlagBadge(countryCode: train.countryCode)
+                TrainListCountryFlagBadge(countryCode: entry.train.countryCode)
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        if let lineNumber = displayLineNumber(for: train) {
+                        if let lineNumber = entry.displayLineNumber {
                             Text(lineNumber)
                                 .font(.subheadline.monospacedDigit().weight(.semibold))
                                 .foregroundStyle(.primary)
@@ -1301,11 +1307,11 @@ private struct TrainListSheet: View {
                                 .foregroundStyle(.primary.opacity(0.78))
                         }
 
-                        Text(displayTrainNumber(for: train))
+                        Text(entry.displayTrainNumber)
                             .font(.subheadline.monospacedDigit().weight(.medium))
                             .foregroundStyle(.primary)
 
-                        if let company = displayCompany(for: train) {
+                        if let company = entry.displayCompany {
                             Text("•")
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(.primary.opacity(0.78))
@@ -1315,7 +1321,7 @@ private struct TrainListSheet: View {
                                 .foregroundStyle(.primary.opacity(0.78))
                                 .lineLimit(1)
 
-                            if let trainType = normalizedText(train.trainType) {
+                            if let trainType = entry.trainType {
                                 Text("•")
                                     .font(.subheadline.weight(.bold))
                                     .foregroundStyle(.primary.opacity(0.78))
@@ -1384,32 +1390,13 @@ private struct TrainListSheet: View {
         .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
     }
 
-    private var trainListFingerprint: String {
-        trains.map { train in
-            "\(train.id)"
-        }
-        .joined(separator: "|")
-    }
-
-    private func rebuildSearchIndex() {
-        indexedTrains = trains.map { train in
-            TrainListEntry(
-                train: train,
-                routeText: displayRoute(train),
-                searchTokens: searchTokens(train)
-            )
-        }
-        applySearch()
-    }
-
-    private func applySearch() {
+    private var displayedTrainList: [TrainListEntry] {
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
-            displayedTrainList = indexedTrains
-            return
+            return entries
         }
 
-        displayedTrainList = indexedTrains.filter { entry in
+        return entries.filter { entry in
             entry.searchTokens.contains { token in
                 token.localizedCaseInsensitiveContains(trimmedQuery)
             }
@@ -1421,6 +1408,10 @@ private struct TrainListEntry: Identifiable {
     let train: TrainMessage
     let routeText: String
     let searchTokens: [String]
+    let displayLineNumber: String?
+    let displayTrainNumber: String
+    let displayCompany: String?
+    let trainType: String?
 
     var id: Int { train.id }
 }
