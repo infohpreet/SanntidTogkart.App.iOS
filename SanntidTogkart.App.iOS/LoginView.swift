@@ -5,6 +5,7 @@ struct LoginView: View {
     @Bindable var authSession: AuthSession
     var onLogin: (EntraIDUser) -> Void
     @State private var isFaceIDAnimating = false
+    @State private var selectedEnvironment = AuthConfig.currentEnvironment
     
     var body: some View {
         ZStack {
@@ -29,6 +30,15 @@ struct LoginView: View {
                         .frame(maxWidth: 420)
                 } else {
                     VStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Picker("Miljø", selection: $selectedEnvironment) {
+                                ForEach(AppEnvironment.allCases) { environment in
+                                    Text(environment.title).tag(environment)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
                         Button(action: {
                             authSession.clearError()
                             
@@ -70,6 +80,10 @@ struct LoginView: View {
             withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true)) {
                 isFaceIDAnimating = true
             }
+        }
+        .onChange(of: selectedEnvironment) { _, newValue in
+            AuthConfig.currentEnvironment = newValue
+            authSession.clearError()
         }
     }
 }

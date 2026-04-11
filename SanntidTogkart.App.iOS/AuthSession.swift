@@ -12,6 +12,7 @@ final class AuthSession {
     var isPreparingDashboard = false
     var isBiometricEnabled: Bool
     var isRestoringSession = true
+    var shouldPromptForBiometricsAfterLogin = false
 
     private let authService: AuthService
     private let userDefaults: UserDefaults
@@ -20,6 +21,7 @@ final class AuthSession {
     private enum StorageKeys {
         static let biometricsEnabled = "auth.biometricsEnabled"
         static let currentUser = "auth.currentUser"
+        static let biometricPromptShown = "auth.biometricPromptShown"
     }
 
     init() {
@@ -72,6 +74,8 @@ final class AuthSession {
             currentUser = user
             if isBiometricEnabled {
                 persist(user: user)
+            } else if !userDefaults.bool(forKey: StorageKeys.biometricPromptShown) {
+                shouldPromptForBiometricsAfterLogin = true
             }
             return user
         } catch {
@@ -87,7 +91,13 @@ final class AuthSession {
     func signOut() {
         currentUser = nil
         errorMessage = nil
+        shouldPromptForBiometricsAfterLogin = false
         userDefaults.removeObject(forKey: StorageKeys.currentUser)
+    }
+
+    func markBiometricPromptHandled() {
+        shouldPromptForBiometricsAfterLogin = false
+        userDefaults.set(true, forKey: StorageKeys.biometricPromptShown)
     }
 
     func setBiometricEnabled(_ isEnabled: Bool) async -> Bool {

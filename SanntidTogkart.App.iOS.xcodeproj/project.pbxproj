@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		442432162F5CF5760033198D /* SanntidTogkart.App.iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = SanntidTogkart.App.iOS.app; path = "Sanntid Togkart.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		442432162F5CF5760033198D /* Sanntid Togkart.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Sanntid Togkart.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		442432172F5CF5760033198D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				442432162F5CF5760033198D /* SanntidTogkart.App.iOS.app */,
+				442432162F5CF5760033198D /* Sanntid Togkart.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -67,7 +67,7 @@
 			packageProductDependencies = (
 			);
 			productName = SanntidTogkart.App.iOS;
-			productReference = 442432162F5CF5760033198D /* SanntidTogkart.App.iOS.app */;
+			productReference = 442432162F5CF5760033198D /* Sanntid Togkart.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -253,10 +253,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = MM4J3YNQC2;
+				DEVELOPMENT_TEAM = 942JLA26DV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Sanntid Togkart";
+				INFOPLIST_KEY_CFBundleDisplayName = Togkart;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID brukes for å holde deg innlogget i Sanntid Togkart.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Posisjonen din brukes for å flytte kartet til din nåværende lokasjon.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -270,7 +270,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "no.banenor.SanntidTogkart-App-iOS";
-				PRODUCT_NAME = "Sanntid Togkart";
+				PRODUCT_NAME = Togkart;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -288,10 +288,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = MM4J3YNQC2;
+				DEVELOPMENT_TEAM = 942JLA26DV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Sanntid Togkart";
+				INFOPLIST_KEY_CFBundleDisplayName = Togkart;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Face ID brukes for å holde deg innlogget i Sanntid Togkart.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Posisjonen din brukes for å flytte kartet til din nåværende lokasjon.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -305,7 +305,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "no.banenor.SanntidTogkart-App-iOS";
-				PRODUCT_NAME = "Sanntid Togkart";
+				PRODUCT_NAME = Togkart;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;

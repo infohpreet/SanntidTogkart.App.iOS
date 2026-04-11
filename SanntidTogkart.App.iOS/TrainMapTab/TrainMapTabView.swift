@@ -318,14 +318,12 @@ struct TrainMapTabView: View {
 
                 revealStationOnMap(pendingStationSelectionRequest)
             }
-            .modifier(
-                RootMapRefreshModifier(
-                    isEnabled: !isTrainListPresented && !isStatsPresented && !isStatusPresented && !isMapModePresented,
-                    refresh: {
-                        await viewModel.refresh()
-                    }
-                )
-            )
+            .refreshable {
+                guard !isTrainListPresented, !isStatsPresented, !isStatusPresented, !isMapModePresented else {
+                    return
+                }
+                await viewModel.refresh()
+            }
             .ignoresSafeArea(edges: .bottom)
             .navigationDestination(isPresented: $isTrainStationsViewPresented) {
                 if let trainForStationsView {
@@ -827,22 +825,6 @@ struct TrainMapTabView: View {
     }
 }
 
-private struct RootMapRefreshModifier: ViewModifier {
-    let isEnabled: Bool
-    let refresh: () async -> Void
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if isEnabled {
-            content.refreshable {
-                await refresh()
-            }
-        } else {
-            content
-        }
-    }
-}
-
 private struct MapStatisticsPanel: View {
     let metrics: TrainMetrics?
     let totalLiveTrainCount: Int
@@ -959,6 +941,7 @@ private struct MapStatisticsPanel: View {
                 }
                 .padding(.horizontal, 1)
             }
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         }
     }
 }

@@ -44,6 +44,19 @@ struct ContentView: View {
                 isShowingIntroduction = false
             })
         }
+        .alert("Aktivere Face ID?", isPresented: biometricPromptIsPresented) {
+            Button("Ikke nå", role: .cancel) {
+                authSession.markBiometricPromptHandled()
+            }
+            Button("Aktiver") {
+                authSession.markBiometricPromptHandled()
+                Task {
+                    _ = await authSession.setBiometricEnabled(true)
+                }
+            }
+        } message: {
+            Text("Bruk Face ID for å holde deg innlogget mellom appstarter.")
+        }
     }
 
     private var activeUser: EntraIDUser? {
@@ -65,6 +78,21 @@ struct ContentView: View {
 
     private var shouldPresentIntroduction: Bool {
         !hasSeenAppIntroduction || showAppIntroductionOnNextLaunch
+    }
+
+    private var biometricPromptIsPresented: Binding<Bool> {
+        Binding(
+            get: {
+                activeUser != nil &&
+                !isShowingIntroduction &&
+                authSession.shouldPromptForBiometricsAfterLogin
+            },
+            set: { isPresented in
+                if !isPresented {
+                    authSession.markBiometricPromptHandled()
+                }
+            }
+        )
     }
 }
 

@@ -4,7 +4,7 @@ enum AuthConfig {
     static var currentEnvironment: AppEnvironment {
         get {
             let storedValue = UserDefaults.standard.string(forKey: StorageKeys.environment)
-            return AppEnvironment(rawValue: storedValue ?? "") ?? .prod
+            return AppEnvironment(rawValue: storedValue ?? "") ?? .training
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: StorageKeys.environment)

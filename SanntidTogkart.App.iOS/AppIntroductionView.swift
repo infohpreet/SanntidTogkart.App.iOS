@@ -25,9 +25,15 @@ struct AppIntroductionView: View {
             accentColor: Color.green
         ),
         IntroductionPage(
-            title: "Bygget for daglig bruk",
-            subtitle: "Bytt miljo, velg lyst eller morkt tema og bruk appen slik den passer best for deg.",
-            systemImage: "slider.horizontal.3",
+            title: "Aktiver Face ID",
+            subtitle: "Etter første innlogging kan du aktivere Face ID for å holde deg innlogget mellom appstarter.",
+            systemImage: "faceid",
+            accentColor: Color.blue
+        ),
+        IntroductionPage(
+            title: "Velg riktig miljø",
+            subtitle: "Du kan bytte mellom Prod, Training og Staging både fra login-siden og i Innstillinger.",
+            systemImage: "network",
             accentColor: Color.pink
         )
     ]
