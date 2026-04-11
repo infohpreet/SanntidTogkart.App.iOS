@@ -54,13 +54,9 @@ struct LoginView: View {
                                     .font(.headline)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .foregroundStyle(Color.accentColor)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
-                            )
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.accentColor)
                         .disabled(authSession.isAuthenticating)
 
                         if let errorMessage = authSession.errorMessage {
