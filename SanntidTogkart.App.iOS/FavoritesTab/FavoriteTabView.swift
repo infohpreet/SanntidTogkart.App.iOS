@@ -24,6 +24,7 @@ struct FavoriteTabView: View {
                             }
                         }
                         .padding(16)
+                        .appReadableContentWidth()
                     }
                     .refreshable {
                         await viewModel.refresh(favorites: favoriteStations.favorites)

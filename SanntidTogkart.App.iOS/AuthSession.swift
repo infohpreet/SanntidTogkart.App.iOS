@@ -21,7 +21,12 @@ final class AuthSession {
     private enum StorageKeys {
         static let biometricsEnabled = "auth.biometricsEnabled"
         static let currentUser = "auth.currentUser"
-        static let biometricPromptShown = "auth.biometricPromptShown"
+        static let biometricPromptVersion = "auth.biometricPromptVersion"
+    }
+
+    private enum BiometricPrompt {
+        // Increment when prompt behavior changes and users should see it once again.
+        static let currentVersion = 2
     }
 
     init() {
@@ -74,7 +79,7 @@ final class AuthSession {
             currentUser = user
             if isBiometricEnabled {
                 persist(user: user)
-            } else if !userDefaults.bool(forKey: StorageKeys.biometricPromptShown) {
+            } else if userDefaults.integer(forKey: StorageKeys.biometricPromptVersion) < BiometricPrompt.currentVersion {
                 shouldPromptForBiometricsAfterLogin = true
             }
             return user
@@ -89,15 +94,19 @@ final class AuthSession {
     }
 
     func signOut() {
+        AppNavigationCenter.shared.resetToMap()
         currentUser = nil
         errorMessage = nil
+        isBiometricEnabled = false
         shouldPromptForBiometricsAfterLogin = false
+        userDefaults.set(false, forKey: StorageKeys.biometricsEnabled)
+        userDefaults.removeObject(forKey: StorageKeys.biometricPromptVersion)
         userDefaults.removeObject(forKey: StorageKeys.currentUser)
     }
 
     func markBiometricPromptHandled() {
         shouldPromptForBiometricsAfterLogin = false
-        userDefaults.set(true, forKey: StorageKeys.biometricPromptShown)
+        userDefaults.set(BiometricPrompt.currentVersion, forKey: StorageKeys.biometricPromptVersion)
     }
 
     func setBiometricEnabled(_ isEnabled: Bool) async -> Bool {

@@ -57,6 +57,7 @@ struct StationsTabView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 3)
                         .padding(.bottom, 12)
+                        .appReadableContentWidth()
                     }
                     .refreshable {
                         await viewModel.refresh()

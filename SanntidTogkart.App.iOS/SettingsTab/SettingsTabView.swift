@@ -23,6 +23,7 @@ struct SettingsTabView: View {
                     actionCard
                 }
                 .padding(20)
+                .appReadableContentWidth()
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Innstillinger")

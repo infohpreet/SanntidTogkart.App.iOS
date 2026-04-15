@@ -13,6 +13,7 @@ struct ContentView: View {
     @AppStorage("hasSeenAppIntroduction") private var hasSeenAppIntroduction = false
     @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
     @State private var isShowingIntroduction = false
+    @State private var isShowingBiometricPrompt = false
 
     var body: some View {
         Group {
@@ -31,10 +32,21 @@ struct ContentView: View {
         .task(id: activeUser?.username) {
             guard activeUser != nil, shouldPresentIntroduction else {
                 isShowingIntroduction = false
+                updateBiometricPromptPresentation()
                 return
             }
 
+            AppNavigationCenter.shared.resetToMap()
             isShowingIntroduction = true
+        }
+        .onChange(of: authSession.shouldPromptForBiometricsAfterLogin) { _, _ in
+            updateBiometricPromptPresentation()
+        }
+        .onChange(of: isShowingIntroduction) { _, _ in
+            updateBiometricPromptPresentation()
+        }
+        .onChange(of: activeUser?.username) { _, _ in
+            updateBiometricPromptPresentation()
         }
         .preferredColorScheme(appAppearanceMode.colorScheme)
         .fullScreenCover(isPresented: $isShowingIntroduction) {
@@ -44,12 +56,14 @@ struct ContentView: View {
                 isShowingIntroduction = false
             })
         }
-        .alert("Aktivere Face ID?", isPresented: biometricPromptIsPresented) {
+        .alert("Aktivere Face ID?", isPresented: $isShowingBiometricPrompt) {
             Button("Ikke nå", role: .cancel) {
                 authSession.markBiometricPromptHandled()
+                isShowingBiometricPrompt = false
             }
             Button("Aktiver") {
                 authSession.markBiometricPromptHandled()
+                isShowingBiometricPrompt = false
                 Task {
                     _ = await authSession.setBiometricEnabled(true)
                 }
@@ -80,19 +94,11 @@ struct ContentView: View {
         !hasSeenAppIntroduction || showAppIntroductionOnNextLaunch
     }
 
-    private var biometricPromptIsPresented: Binding<Bool> {
-        Binding(
-            get: {
-                activeUser != nil &&
-                !isShowingIntroduction &&
-                authSession.shouldPromptForBiometricsAfterLogin
-            },
-            set: { isPresented in
-                if !isPresented {
-                    authSession.markBiometricPromptHandled()
-                }
-            }
-        )
+    private func updateBiometricPromptPresentation() {
+        isShowingBiometricPrompt =
+            activeUser != nil &&
+            !isShowingIntroduction &&
+            authSession.shouldPromptForBiometricsAfterLogin
     }
 }
 

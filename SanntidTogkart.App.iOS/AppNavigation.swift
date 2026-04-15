@@ -34,4 +34,9 @@ final class AppNavigationCenter {
             longitude: station.longitude
         )
     }
+
+    func resetToMap() {
+        selectedDashboardTab = .map
+        stationMapSelectionRequest = nil
+    }
 }

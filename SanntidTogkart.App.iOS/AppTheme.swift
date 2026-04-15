@@ -51,4 +51,14 @@ enum AppTheme {
             return UIColor(white: 0.0, alpha: 0.06)
         }
     )
+
+    static let readableContentWidth: CGFloat = 760
+}
+
+extension View {
+    func appReadableContentWidth(_ maxWidth: CGFloat = AppTheme.readableContentWidth) -> some View {
+        self
+            .frame(maxWidth: maxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
 }
