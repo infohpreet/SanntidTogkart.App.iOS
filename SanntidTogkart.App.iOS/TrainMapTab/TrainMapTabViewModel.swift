@@ -356,7 +356,7 @@ final class TrainMapTabViewModel {
         let enrichedDestination = displayStationText(for: trainMessage.destination, countryCode: trainMessage.countryCode)
         let routeText = displayRoute(for: trainMessage)
         let originTimeText = trainMessage.originTime.map {
-            $0.formatted(date: .omitted, time: .shortened)
+            AppTime.localTimeString(from: $0)
         }
 
         return [
@@ -562,7 +562,7 @@ final class TrainMapTabViewModel {
     }
 
     private func formattedTimeText(for date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
+        AppTime.localTimeString(from: date)
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D, to coordinates: inout [CLLocationCoordinate2D]) {

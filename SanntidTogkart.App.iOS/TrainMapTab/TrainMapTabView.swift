@@ -1673,20 +1673,25 @@ private struct SelectedTrainCard: View {
                 .accessibilityLabel("Fjern valgt tog")
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(routeText)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(routeText)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(alignment: .top, spacing: 20) {
-                TrainInfoColumn(title: "Departure", value: departureTimeText ?? "Ukjent", valueWeight: .bold)
-                Spacer(minLength: 0)
-                TrainInfoColumn(title: "Arrival", value: arrivalTimeText ?? "Ukjent", alignment: .trailing, valueWeight: .bold)
+                HStack(alignment: .top, spacing: 20) {
+                    TrainInfoColumn(title: "Avgang", value: departureTimeText ?? "Ukjent", valueWeight: .bold)
+                    Spacer(minLength: 0)
+                    TrainInfoColumn(title: "Ankomst", value: arrivalTimeText ?? "Ukjent", alignment: .trailing, valueWeight: .bold)
+                }
             }
+
+            Divider()
+                .overlay(Color.primary.opacity(0.08))
 
             HStack(alignment: .top, spacing: 20) {
                 TrainInfoColumn(title: "ServiceTime", value: displayServiceTime(for: train))

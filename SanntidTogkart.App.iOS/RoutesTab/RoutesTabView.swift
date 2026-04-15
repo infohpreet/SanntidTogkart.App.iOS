@@ -215,7 +215,7 @@ private extension RouteMessage {
             return nil
         }
 
-        return originTime.formatted(date: .omitted, time: .shortened)
+        return AppTime.localTimeString(from: originTime)
     }
 
     var metadataLine: String {

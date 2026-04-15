@@ -14,7 +14,7 @@ final class SignalRConnectionCenter {
 
     var accessibilityStatusText: String {
         if let lastUpdated {
-            return "\(state.description), oppdatert \(lastUpdated.formatted(date: .omitted, time: .shortened))"
+            return "\(state.description), oppdatert \(AppTime.localTimeString(from: lastUpdated))"
         }
 
         return state.description

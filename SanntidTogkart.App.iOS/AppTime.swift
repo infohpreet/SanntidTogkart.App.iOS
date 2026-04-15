@@ -13,6 +13,14 @@ enum AppTime {
         utcDayFormatter.string(from: date)
     }
 
+    static func localTimeString(from date: Date, includesSeconds: Bool = false) -> String {
+        if includesSeconds {
+            return localTimeWithSecondsFormatter.string(from: date)
+        }
+
+        return localTimeFormatter.string(from: date)
+    }
+
     private static let localDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.autoupdatingCurrent
@@ -28,6 +36,24 @@ enum AppTime {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let localTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.autoupdatingCurrent
+        formatter.locale = Locale.autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private static let localTimeWithSecondsFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.autoupdatingCurrent
+        formatter.locale = Locale.autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "HH:mm:ss"
         return formatter
     }()
 }
