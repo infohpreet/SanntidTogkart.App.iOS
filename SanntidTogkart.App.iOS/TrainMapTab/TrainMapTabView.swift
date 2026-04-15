@@ -1703,6 +1703,7 @@ private struct SelectedTrainCard: View {
             if let totalDistanceText, let progress {
                 RouteProgressView(
                     progress: progress,
+                    remainingDistanceText: distanceText,
                     totalDistanceText: totalDistanceText,
                     passedDistanceText: passedDistanceText,
                     onOpenRoute: onOpenRoute
@@ -1725,15 +1726,20 @@ private struct SelectedTrainCard: View {
 
 private struct RouteProgressView: View {
     let progress: Double
+    let remainingDistanceText: String?
     let totalDistanceText: String
     let passedDistanceText: String?
     let onOpenRoute: () -> Void
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 7) {
+            progressMarkerSummary
+                .frame(maxWidth: .infinity, alignment: .center)
+
             GeometryReader { geometry in
                 let clampedProgress = min(max(progress, 0), 1)
                 let markerCenterX = max(10, min(geometry.size.width - 10, geometry.size.width * clampedProgress))
+                let lineCenterY = geometry.size.height / 2
 
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -1741,7 +1747,7 @@ private struct RouteProgressView: View {
                         .frame(height: 4)
 
                     Capsule()
-                        .fill(Color.accentColor.opacity(0.30))
+                        .fill(Color.accentColor)
                         .frame(width: max(4, geometry.size.width * clampedProgress), height: 4)
 
                     Button(action: onOpenRoute) {
@@ -1759,13 +1765,13 @@ private struct RouteProgressView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Apne togrute")
-                    .position(x: markerCenterX, y: 10)
+                    .position(x: markerCenterX, y: lineCenterY)
                 }
             }
-            .frame(height: 20)
+            .frame(height: 12)
 
             HStack {
-                Text(passedDistanceText ?? "0 km")
+                Text("0 km")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
 
@@ -1776,6 +1782,34 @@ private struct RouteProgressView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var progressMarkerSummary: some View {
+        HStack(spacing: 6) {
+            if let passedDistanceText {
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.left")
+                        .font(.caption2)
+                    Text(passedDistanceText)
+                        .font(.caption2.monospacedDigit())
+                }
+            }
+
+            if passedDistanceText != nil, remainingDistanceText != nil {
+                Text("•")
+                    .font(.caption2)
+            }
+
+            if let remainingDistanceText {
+                HStack(spacing: 3) {
+                    Text(remainingDistanceText)
+                        .font(.caption2.monospacedDigit())
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                }
+            }
+        }
+        .foregroundStyle(.secondary)
     }
 }
 

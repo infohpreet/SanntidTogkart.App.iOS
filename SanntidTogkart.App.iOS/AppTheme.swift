@@ -52,7 +52,7 @@ enum AppTheme {
         }
     )
 
-    static let readableContentWidth: CGFloat = 760
+    static let readableContentWidth: CGFloat = 580
 }
 
 extension View {
