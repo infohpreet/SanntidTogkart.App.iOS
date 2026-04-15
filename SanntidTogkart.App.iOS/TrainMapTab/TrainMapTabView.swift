@@ -105,6 +105,8 @@ struct TrainMapTabView: View {
                         distanceText: viewModel.selectedTrainRemainingDistanceText,
                         totalDistanceText: viewModel.selectedTrainTotalRouteDistanceText,
                         passedDistanceText: viewModel.selectedTrainPassedDistanceText,
+                        departureTimeText: viewModel.selectedTrainDepartureTimeText,
+                        arrivalTimeText: viewModel.selectedTrainArrivalTimeText,
                         progress: viewModel.selectedTrainRouteProgress,
                         onOpenRoute: {
                             trainForStationsView = selectedTrain
@@ -1608,6 +1610,8 @@ private struct SelectedTrainCard: View {
     let distanceText: String?
     let totalDistanceText: String?
     let passedDistanceText: String?
+    let departureTimeText: String?
+    let arrivalTimeText: String?
     let progress: Double?
     let onOpenRoute: () -> Void
     let onClear: () -> Void
@@ -1675,26 +1679,16 @@ private struct SelectedTrainCard: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                if let distanceText {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flag.checkered")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        Text(distanceText)
-                            .font(.caption.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(alignment: .top, spacing: 20) {
-                TrainInfoColumn(title: "Origin Time", value: displayOriginTime(for: train))
+                TrainInfoColumn(title: "Departure", value: departureTimeText ?? "Ukjent", valueWeight: .bold)
                 Spacer(minLength: 0)
+                TrainInfoColumn(title: "Arrival", value: arrivalTimeText ?? "Ukjent", alignment: .trailing, valueWeight: .bold)
+            }
+
+            HStack(alignment: .top, spacing: 20) {
                 TrainInfoColumn(title: "ServiceTime", value: displayServiceTime(for: train))
                 Spacer(minLength: 0)
                 TrainInfoColumn(title: "Koordinater", value: displayCoordinateText(for: train), alignment: .trailing)
@@ -1733,9 +1727,6 @@ private struct RouteProgressView: View {
 
     var body: some View {
         VStack(spacing: 7) {
-            progressMarkerSummary
-                .frame(maxWidth: .infinity, alignment: .center)
-
             GeometryReader { geometry in
                 let clampedProgress = min(max(progress, 0), 1)
                 let markerCenterX = max(10, min(geometry.size.width - 10, geometry.size.width * clampedProgress))
@@ -1770,16 +1761,21 @@ private struct RouteProgressView: View {
             }
             .frame(height: 12)
 
-            HStack {
-                Text("0 km")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+            ZStack {
+                HStack {
+                    Text("0 km")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
 
-                Spacer(minLength: 12)
+                    Spacer(minLength: 12)
 
-                Text(totalDistanceText)
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    Text(totalDistanceText)
+                        .font(.caption2.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                progressMarkerSummary
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }
@@ -2039,6 +2035,7 @@ private struct TrainInfoColumn: View {
     let title: String
     let value: String
     var alignment: HorizontalAlignment = .leading
+    var valueWeight: Font.Weight = .regular
 
     var body: some View {
         VStack(alignment: alignment, spacing: 4) {
@@ -2049,7 +2046,7 @@ private struct TrainInfoColumn: View {
                 .fixedSize(horizontal: true, vertical: false)
 
             Text(value)
-                .font(.footnote.monospacedDigit())
+                .font(.footnote.monospacedDigit().weight(valueWeight))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)

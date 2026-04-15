@@ -332,6 +332,23 @@ final class TrainMapTabViewModel {
         formattedDistanceText(for: selectedTrainTotalRouteDistance)
     }
 
+    var selectedTrainDepartureTimeText: String? {
+        selectedTrainStations
+            .lazy
+            .compactMap(\.std)
+            .first
+            .map(formattedTimeText(for:))
+    }
+
+    var selectedTrainArrivalTimeText: String? {
+        selectedTrainStations
+            .reversed()
+            .lazy
+            .compactMap(\.sta)
+            .first
+            .map(formattedTimeText(for:))
+    }
+
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
         let originCode = normalizedText(trainMessage.origin)
         let destinationCode = normalizedText(trainMessage.destination)
@@ -542,6 +559,10 @@ final class TrainMapTabViewModel {
         }
 
         return String(format: "%.1f km", distance / 1000)
+    }
+
+    private func formattedTimeText(for date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D, to coordinates: inout [CLLocationCoordinate2D]) {
