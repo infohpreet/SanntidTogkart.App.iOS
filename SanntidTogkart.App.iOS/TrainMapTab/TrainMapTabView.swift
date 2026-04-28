@@ -98,27 +98,42 @@ struct TrainMapTabView: View {
                 }
             }
             .overlay(alignment: .top) {
-                if let selectedTrain, isSelectedTrainCardVisible {
-                    SelectedTrainCard(
-                        train: selectedTrain,
-                        routeText: viewModel.displayRoute(for: selectedTrain),
-                        distanceText: viewModel.selectedTrainRemainingDistanceText,
-                        totalDistanceText: viewModel.selectedTrainTotalRouteDistanceText,
-                        passedDistanceText: viewModel.selectedTrainPassedDistanceText,
-                        departureTimeText: viewModel.selectedTrainDepartureTimeText,
-                        arrivalTimeText: viewModel.selectedTrainArrivalTimeText,
-                        travelTimeText: viewModel.selectedTrainTravelTimeText,
-                        remainingTimeText: viewModel.selectedTrainRemainingTimeText,
-                        progress: viewModel.selectedTrainRouteProgress,
-                        onOpenRoute: {
-                            trainForStationsView = selectedTrain
-                            isTrainStationsViewPresented = true
-                        }
-                    ) {
-                        isSelectedTrainCardVisible = false
+                if let selectedTrain {
+                    if isSelectedTrainCardVisible {
+                        SelectedTrainCard(
+                            train: selectedTrain,
+                            routeText: viewModel.displayRoute(for: selectedTrain),
+                            distanceText: viewModel.selectedTrainRemainingDistanceText,
+                            totalDistanceText: viewModel.selectedTrainTotalRouteDistanceText,
+                            passedDistanceText: viewModel.selectedTrainPassedDistanceText,
+                            departureTimeText: viewModel.selectedTrainDepartureTimeText,
+                            arrivalTimeText: viewModel.selectedTrainArrivalTimeText,
+                            travelTimeText: viewModel.selectedTrainTravelTimeText,
+                            remainingTimeText: viewModel.selectedTrainRemainingTimeText,
+                            progress: viewModel.selectedTrainRouteProgress,
+                            onOpenRoute: {
+                                trainForStationsView = selectedTrain
+                                isTrainStationsViewPresented = true
+                            },
+                            onCollapse: {
+                                isSelectedTrainCardVisible = false
+                            },
+                            onClear: clearSelectedTrain
+                        )
+                        .padding(.top, 18)
+                        .padding(.horizontal, 16)
+                    } else {
+                        CollapsedSelectedTrainCard(
+                            train: selectedTrain,
+                            routeText: viewModel.displayRoute(for: selectedTrain),
+                            onExpand: {
+                                isSelectedTrainCardVisible = true
+                            },
+                            onClear: clearSelectedTrain
+                        )
+                        .padding(.top, 18)
+                        .padding(.horizontal, 16)
                     }
-                    .padding(.top, 18)
-                    .padding(.horizontal, 16)
                 } else if let selectedStation {
                     SelectedStationCard(
                         station: selectedStation,
@@ -706,12 +721,16 @@ struct TrainMapTabView: View {
         selectedStationID = nil
 
         if viewModel.selectedTrainMessageID == train.id {
-            isSelectedTrainCardVisible = false
-            viewModel.clearSelection()
+            clearSelectedTrain()
             return
         }
 
         selectTrain(train)
+    }
+
+    private func clearSelectedTrain() {
+        isSelectedTrainCardVisible = false
+        viewModel.clearSelection()
     }
 
     private func toggleSelection(for station: TraseStation) {
@@ -1618,6 +1637,7 @@ private struct SelectedTrainCard: View {
     let remainingTimeText: String?
     let progress: Double?
     let onOpenRoute: () -> Void
+    let onCollapse: () -> Void
     let onClear: () -> Void
 
     var body: some View {
@@ -1627,54 +1647,51 @@ private struct SelectedTrainCard: View {
                     HStack(spacing: 8) {
                         TrainCountryFlagBadge(countryCode: train.countryCode)
 
-                        Text(displayLineNumber(for: train) ?? displayTrainNumber(for: train))
+                        let lineNumber = displayLineNumber(for: train)
+
+                        Text(lineNumber ?? displayTrainNumber(for: train))
                             .font(.headline.monospacedDigit().weight(.bold))
                             .foregroundStyle(.primary)
 
-                        Text("•")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
-
-                        Text(displayTrainNumber(for: train))
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-
-                        Text("•")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
-
-                        Text(displayCompany(for: train) ?? "Operatør mangler")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-
-                        if let trainType = normalizedText(train.trainType) {
+                        if lineNumber != nil {
                             Text("•")
                                 .font(.caption.weight(.bold))
                                 .foregroundStyle(.secondary)
 
-                            Text(trainType)
-                                .font(.subheadline.weight(.medium))
+                            Text(displayTrainNumber(for: train))
+                                .font(.subheadline.monospacedDigit())
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                         }
+
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Spacer(minLength: 8)
 
-                Button(action: onClear) {
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .background(Color.black.opacity(0.05), in: Circle())
+                HStack(spacing: 8) {
+                    Button(action: onCollapse) {
+                        Image(systemName: "chevron.up")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.black.opacity(0.05), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Minimer valgt tog")
+
+                    Button(action: onClear) {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.black.opacity(0.05), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fjern valgt tog")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Fjern valgt tog")
             }
 
             VStack(spacing: 10) {
@@ -1694,14 +1711,20 @@ private struct SelectedTrainCard: View {
                 }
 
                 HStack(alignment: .top, spacing: 20) {
-                    TrainInfoColumn(title: "Reisetid", value: travelTimeText ?? "Ukjent")
+                    TrainInfoColumn(title: "Reisetid", value: travelTimeText ?? "Ukjent", valueWeight: .bold)
                     Spacer(minLength: 0)
-                    TrainInfoColumn(title: "Gjenstår", value: remainingTimeText ?? "Ukjent", alignment: .trailing)
+                    TrainInfoColumn(title: "Gjenstår", value: remainingTimeText ?? "Ukjent", alignment: .trailing, valueWeight: .bold)
                 }
             }
 
             Divider()
                 .overlay(Color.primary.opacity(0.08))
+
+            HStack(alignment: .top, spacing: 20) {
+                TrainInfoColumn(title: "Operatør", value: displayCompany(for: train) ?? "Operatør mangler")
+                Spacer(minLength: 0)
+                TrainInfoColumn(title: "Togtype", value: normalizedText(train.trainType) ?? "Ukjent", alignment: .trailing)
+            }
 
             HStack(alignment: .top, spacing: 20) {
                 TrainInfoColumn(title: "ServiceTime", value: displayServiceTime(for: train))
@@ -1718,6 +1741,7 @@ private struct SelectedTrainCard: View {
                     onOpenRoute: onOpenRoute
                 )
             }
+
         }
         .padding(16)
         .frame(maxWidth: 430, alignment: .leading)
@@ -1730,6 +1754,70 @@ private struct SelectedTrainCard: View {
                 .stroke(Color.white.opacity(0.45), lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.14), radius: 18, y: 8)
+    }
+}
+
+private struct CollapsedSelectedTrainCard: View {
+    let train: TrainMessage
+    let routeText: String
+    let onExpand: () -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onExpand) {
+                HStack(spacing: 10) {
+                    TrainCountryFlagBadge(countryCode: train.countryCode)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(displayLineNumber(for: train) ?? displayTrainNumber(for: train))
+                            .font(.subheadline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.primary)
+
+                        Text(routeText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Utvid valgt tog")
+
+            HStack(spacing: 8) {
+                Button(action: onExpand) {
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.black.opacity(0.05), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Utvid valgt tog")
+
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.black.opacity(0.05), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Fjern valgt tog")
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: 430, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.12), radius: 14, y: 6)
     }
 }
 
