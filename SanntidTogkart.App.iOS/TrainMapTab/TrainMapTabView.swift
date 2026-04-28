@@ -107,6 +107,8 @@ struct TrainMapTabView: View {
                         passedDistanceText: viewModel.selectedTrainPassedDistanceText,
                         departureTimeText: viewModel.selectedTrainDepartureTimeText,
                         arrivalTimeText: viewModel.selectedTrainArrivalTimeText,
+                        travelTimeText: viewModel.selectedTrainTravelTimeText,
+                        remainingTimeText: viewModel.selectedTrainRemainingTimeText,
                         progress: viewModel.selectedTrainRouteProgress,
                         onOpenRoute: {
                             trainForStationsView = selectedTrain
@@ -1612,6 +1614,8 @@ private struct SelectedTrainCard: View {
     let passedDistanceText: String?
     let departureTimeText: String?
     let arrivalTimeText: String?
+    let travelTimeText: String?
+    let remainingTimeText: String?
     let progress: Double?
     let onOpenRoute: () -> Void
     let onClear: () -> Void
@@ -1687,6 +1691,12 @@ private struct SelectedTrainCard: View {
                     TrainInfoColumn(title: "Avgang", value: departureTimeText ?? "Ukjent", valueWeight: .bold)
                     Spacer(minLength: 0)
                     TrainInfoColumn(title: "Ankomst", value: arrivalTimeText ?? "Ukjent", alignment: .trailing, valueWeight: .bold)
+                }
+
+                HStack(alignment: .top, spacing: 20) {
+                    TrainInfoColumn(title: "Reisetid", value: travelTimeText ?? "Ukjent")
+                    Spacer(minLength: 0)
+                    TrainInfoColumn(title: "Gjenstår", value: remainingTimeText ?? "Ukjent", alignment: .trailing)
                 }
             }
 

@@ -335,7 +335,7 @@ final class TrainMapTabViewModel {
     var selectedTrainDepartureTimeText: String? {
         selectedTrainStations
             .lazy
-            .compactMap(\.std)
+            .compactMap { $0.atd ?? $0.etd ?? $0.std }
             .first
             .map(formattedTimeText(for:))
     }
@@ -344,9 +344,29 @@ final class TrainMapTabViewModel {
         selectedTrainStations
             .reversed()
             .lazy
-            .compactMap(\.sta)
+            .compactMap { $0.ata ?? $0.eta ?? $0.sta }
             .first
             .map(formattedTimeText(for:))
+    }
+
+    var selectedTrainTravelTimeText: String? {
+        guard
+            let departureDate = selectedTrainDepartureDate,
+            let arrivalDate = selectedTrainArrivalDate,
+            arrivalDate >= departureDate
+        else {
+            return nil
+        }
+
+        return formattedDurationText(for: arrivalDate.timeIntervalSince(departureDate))
+    }
+
+    var selectedTrainRemainingTimeText: String? {
+        guard let arrivalDate = selectedTrainArrivalDate else {
+            return nil
+        }
+
+        return formattedDurationText(for: max(0, arrivalDate.timeIntervalSince(AppTime.now)))
     }
 
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
@@ -563,6 +583,37 @@ final class TrainMapTabViewModel {
 
     private func formattedTimeText(for date: Date) -> String {
         AppTime.localTimeString(from: date)
+    }
+
+    private var selectedTrainDepartureDate: Date? {
+        selectedTrainStations
+            .lazy
+            .compactMap { $0.atd ?? $0.etd ?? $0.std }
+            .first
+    }
+
+    private var selectedTrainArrivalDate: Date? {
+        selectedTrainStations
+            .reversed()
+            .lazy
+            .compactMap { $0.ata ?? $0.eta ?? $0.sta }
+            .first
+    }
+
+    private func formattedDurationText(for interval: TimeInterval) -> String {
+        let totalMinutes = max(0, Int(interval / 60))
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+
+        if hours == 0 {
+            return "\(totalMinutes) min"
+        }
+
+        if minutes == 0 {
+            return "\(hours) t"
+        }
+
+        return "\(hours) t \(minutes) min"
     }
 
     private func appendCoordinate(_ coordinate: CLLocationCoordinate2D, to coordinates: inout [CLLocationCoordinate2D]) {
