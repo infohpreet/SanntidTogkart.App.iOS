@@ -369,6 +369,36 @@ final class TrainMapTabViewModel {
         return formattedDurationText(for: max(0, arrivalDate.timeIntervalSince(AppTime.now)))
     }
 
+    var selectedTrainNextStationText: String? {
+        guard let nextStation = selectedTrainStations.first(where: { !$0.shouldSkipForFutureRoute }) else {
+            return nil
+        }
+
+        return displayStationText(for: nextStation.city, countryCode: nextStation.countryCode)
+    }
+
+    var selectedTrainNextStationDetailText: String? {
+        guard let nextStation = selectedTrainStations.first(where: { !$0.shouldSkipForFutureRoute }) else {
+            return nil
+        }
+
+        var parts: [String] = []
+
+        if let timeText = formattedNextStationTimeText(for: nextStation) {
+            parts.append(timeText)
+        }
+
+        if let track = normalizedText(nextStation.scheduledTrack) {
+            parts.append("Spor \(track)")
+        }
+
+        if let activityCode = normalizedText(nextStation.activityKind ?? nextStation.activity)?.uppercased() {
+            parts.append(activityCode)
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+
     func searchTokens(for trainMessage: TrainMessage) -> [String] {
         let originCode = normalizedText(trainMessage.origin)
         let destinationCode = normalizedText(trainMessage.destination)
@@ -583,6 +613,33 @@ final class TrainMapTabViewModel {
 
     private func formattedTimeText(for date: Date) -> String {
         AppTime.localTimeString(from: date)
+    }
+
+    private func formattedNextStationTimeText(for stationMessage: StationMessage) -> String? {
+        let estimatedTime = stationMessage.eta ?? stationMessage.etd
+        let scheduledTime = stationMessage.sta ?? stationMessage.std
+        let primaryTime = estimatedTime ?? scheduledTime
+
+        guard let primaryTime else {
+            return nil
+        }
+
+        let baseText = formattedTimeText(for: primaryTime)
+
+        guard
+            let estimatedTime,
+            let scheduledTime
+        else {
+            return baseText
+        }
+
+        let delayMinutes = Int(estimatedTime.timeIntervalSince(scheduledTime) / 60)
+        guard delayMinutes != 0 else {
+            return baseText
+        }
+
+        let delayPrefix = delayMinutes > 0 ? "+" : ""
+        return "\(baseText) (\(delayPrefix)\(delayMinutes))"
     }
 
     private var selectedTrainDepartureDate: Date? {
