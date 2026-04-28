@@ -431,6 +431,7 @@ private struct TrainStationsNorwayFlagBadge: View {
                 .frame(height: 4)
         }
         .frame(width: 42, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 
@@ -450,6 +451,7 @@ private struct TrainStationsSwedenFlagBadge: View {
                 .frame(height: 6)
         }
         .frame(width: 42, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 

@@ -64,20 +64,6 @@ struct TrainMapTabView: View {
                 isZoomedOut = span.latitudeDelta > 1.6 || span.longitudeDelta > 1.6
                 isCountryZoomedOut = span.latitudeDelta > 8.5 || span.longitudeDelta > 8.5
             }
-            .onChange(of: locationManager.currentLocation) { _, newValue in
-                guard let coordinate = newValue else {
-                    return
-                }
-
-                withAnimation(.easeInOut(duration: 0.4)) {
-                    position = .region(
-                        MKCoordinateRegion(
-                            center: coordinate.clCoordinate,
-                            span: MKCoordinateSpan(latitudeDelta: 0.03, longitudeDelta: 0.03)
-                        )
-                    )
-                }
-            }
             .overlay(alignment: .topLeading) {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
@@ -1213,6 +1199,7 @@ private struct TrainListSheet: View {
     let onClearSelection: () -> Void
 
     @State private var searchText = ""
+    @State private var lastRefreshedQuery = ""
     private let drawerContentHeightRatio: CGFloat = 0.5
 
     var body: some View {
@@ -1241,6 +1228,21 @@ private struct TrainListSheet: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
+        .onChange(of: searchText) { _, newValue in
+            let trimmedQuery = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !trimmedQuery.isEmpty else {
+                lastRefreshedQuery = ""
+                return
+            }
+
+            guard displayedTrainList.isEmpty, lastRefreshedQuery != trimmedQuery else {
+                return
+            }
+
+            lastRefreshedQuery = trimmedQuery
+            onRefresh()
+        }
     }
 
     private var searchField: some View {
@@ -1255,6 +1257,7 @@ private struct TrainListSheet: View {
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
+                    lastRefreshedQuery = ""
                     onClearSelection()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -1890,7 +1893,7 @@ private struct RouteProgressView: View {
                     Image(systemName: "arrow.left")
                         .font(.caption2)
                     Text(passedDistanceText)
-                        .font(.caption2.monospacedDigit())
+                        .font(.caption2.monospacedDigit().weight(.bold))
                 }
             }
 
@@ -1902,7 +1905,7 @@ private struct RouteProgressView: View {
             if let remainingDistanceText {
                 HStack(spacing: 3) {
                     Text(remainingDistanceText)
-                        .font(.caption2.monospacedDigit())
+                        .font(.caption2.monospacedDigit().weight(.bold))
                     Image(systemName: "arrow.right")
                         .font(.caption2)
                 }
@@ -1995,6 +1998,7 @@ private struct TrainCountryFlagBadge: View {
                     .background(AppTheme.elevatedSurface, in: Rectangle())
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 

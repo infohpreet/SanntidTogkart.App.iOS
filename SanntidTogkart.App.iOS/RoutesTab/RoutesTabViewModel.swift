@@ -100,6 +100,7 @@ final class RoutesTabViewModel {
 
         filteredMessages = messages.filter { message in
             message.advertisementTrainNo.localizedCaseInsensitiveContains(query)
+                || message.trainNo.localizedCaseInsensitiveContains(query)
                 || (message.origin?.localizedCaseInsensitiveContains(query) ?? false)
                 || (message.destination?.localizedCaseInsensitiveContains(query) ?? false)
                 || (message.trainType?.localizedCaseInsensitiveContains(query) ?? false)
