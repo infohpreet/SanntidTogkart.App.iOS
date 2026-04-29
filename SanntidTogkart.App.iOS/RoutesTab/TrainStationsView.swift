@@ -280,6 +280,10 @@ struct TrainStationsView: View {
                 .fill(AppTheme.border)
                 .frame(height: 1)
 
+            Text("Ankomst")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+
             HStack(spacing: 18) {
                 infoColumn(
                     title: "Planlagt",
@@ -293,9 +297,39 @@ struct TrainStationsView: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .center)
 
-                infoColumn(
+                actualInfoColumn(
                     title: "Faktisk",
-                    value: actualTime(for: stationMessage)
+                    timeText: actualBaseTime(for: stationMessage.ata ?? stationMessage.atd),
+                    delayText: actualDelayText(for: stationMessage.ata ?? stationMessage.atd, scheduledTime: stationMessage.sta ?? stationMessage.std),
+                    alignment: .trailing,
+                    delayColor: actualTimeColor(for: stationMessage.ata ?? stationMessage.atd, scheduledTime: stationMessage.sta ?? stationMessage.std)
+                )
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+
+            Text("Avgang")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            HStack(spacing: 18) {
+                infoColumn(
+                    title: "Planlagt",
+                    value: scheduledDepartureTime(for: stationMessage)
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                infoColumn(
+                    title: "Estimert",
+                    value: estimatedDepartureTime(for: stationMessage)
+                )
+                .frame(maxWidth: .infinity, alignment: .center)
+
+                actualInfoColumn(
+                    title: "Faktisk",
+                    timeText: actualBaseTime(for: stationMessage.atd),
+                    delayText: actualDelayText(for: stationMessage.atd, scheduledTime: stationMessage.std),
+                    alignment: .trailing,
+                    delayColor: actualTimeColor(for: stationMessage.atd, scheduledTime: stationMessage.std)
                 )
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -311,8 +345,12 @@ struct TrainStationsView: View {
         .opacity(isPast ? 0.72 : 1)
     }
 
-    private func infoColumn(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func infoColumn(
+        title: String,
+        value: String,
+        alignment: HorizontalAlignment = .leading
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 4) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -320,6 +358,25 @@ struct TrainStationsView: View {
             Text(value)
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.primary)
+        }
+    }
+
+    private func actualInfoColumn(
+        title: String,
+        timeText: String,
+        delayText: String,
+        alignment: HorizontalAlignment = .leading,
+        delayColor: Color = .primary
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(
+                "\(Text(timeText).foregroundStyle(.primary))\(Text(delayText).foregroundStyle(delayColor))"
+            )
+            .font(.subheadline.monospacedDigit())
         }
     }
 
@@ -353,7 +410,7 @@ struct TrainStationsView: View {
 
     private func actualTime(for stationMessage: StationMessage) -> String {
         if let actualTime = stationMessage.ata ?? stationMessage.atd {
-            return displayTime(actualTime)
+            return displayTimeWithDelay(actualTime, scheduledTime: stationMessage.sta ?? stationMessage.std)
         }
 
         return "Ukjent"
@@ -365,6 +422,91 @@ struct TrainStationsView: View {
                 .hour(.twoDigits(amPM: .omitted))
                 .minute(.twoDigits)
         )
+    }
+
+    private func scheduledDepartureTime(for stationMessage: StationMessage) -> String {
+        guard let scheduledTime = stationMessage.std else {
+            return "Ukjent"
+        }
+
+        return displayTime(scheduledTime)
+    }
+
+    private func estimatedDepartureTime(for stationMessage: StationMessage) -> String {
+        guard let estimatedTime = stationMessage.etd else {
+            return "Ukjent"
+        }
+
+        return displayTime(estimatedTime)
+    }
+
+    private func actualDepartureTime(for stationMessage: StationMessage) -> String {
+        guard let actualTime = stationMessage.atd else {
+            return "Ukjent"
+        }
+
+        return displayTimeWithDelay(actualTime, scheduledTime: stationMessage.std)
+    }
+
+    private func displayTimeWithDelay(_ actualTime: Date, scheduledTime: Date?) -> String {
+        let baseText = displayTime(actualTime)
+
+        guard let scheduledTime else {
+            return baseText
+        }
+
+        let delayMinutes = Int(actualTime.timeIntervalSince(scheduledTime) / 60)
+        guard delayMinutes != 0 else {
+            return baseText
+        }
+
+        let delayPrefix = delayMinutes > 0 ? "+" : ""
+        return "\(baseText) (\(delayPrefix)\(delayMinutes))"
+    }
+
+    private func actualBaseTime(for actualTime: Date?) -> String {
+        guard let actualTime else {
+            return "Ukjent"
+        }
+
+        return displayTime(actualTime)
+    }
+
+    private func actualDelayText(for actualTime: Date?, scheduledTime: Date?) -> String {
+        guard
+            let actualTime,
+            let scheduledTime
+        else {
+            return ""
+        }
+
+        let delayMinutes = Int(actualTime.timeIntervalSince(scheduledTime) / 60)
+        guard delayMinutes != 0 else {
+            return ""
+        }
+
+        let delayPrefix = delayMinutes > 0 ? "+" : ""
+        return " (\(delayPrefix)\(delayMinutes))"
+    }
+
+    private func actualTimeColor(for actualTime: Date?, scheduledTime: Date?) -> Color {
+        guard
+            let actualTime,
+            let scheduledTime
+        else {
+            return .primary
+        }
+
+        let delayMinutes = Int(actualTime.timeIntervalSince(scheduledTime) / 60)
+        if delayMinutes > 0 {
+            return .red
+        }
+
+        if delayMinutes < 0 {
+            return .green
+        }
+
+        return .primary
     }
 
     private func isPastStationMessage(_ stationMessage: StationMessage) -> Bool {

@@ -139,7 +139,7 @@ final class RoutesTabViewModel {
         }
 
         let stationNames = makeStationNameLookup(from: stations)
-        messages = rawMessages.map { message in
+        messages = rawMessages.reversed().map { message in
             RouteMessage(
                 trainMessage: message,
                 origin: resolvedStationName(for: message.origin, countryCode: message.countryCode, using: stationNames),

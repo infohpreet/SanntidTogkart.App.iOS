@@ -1694,8 +1694,8 @@ private struct SelectedTrainCard: View {
                                 .foregroundStyle(.secondary)
 
                             Text(displayTrainNumber(for: train))
-                                .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .font(.headline.monospacedDigit().weight(.bold))
+                                .foregroundStyle(.primary)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
@@ -1767,15 +1767,15 @@ private struct SelectedTrainCard: View {
                 .overlay(Color.primary.opacity(0.08))
 
             HStack(alignment: .top, spacing: 20) {
-                TrainInfoColumn(title: "Operatør", value: displayCompany(for: train) ?? "Operatør mangler")
+                TrainInfoColumn(title: "Operatør", value: displayCompany(for: train) ?? "Operatør mangler", valueWeight: .bold)
                 Spacer(minLength: 0)
-                TrainInfoColumn(title: "Togtype", value: normalizedText(train.trainType) ?? "Ukjent", alignment: .trailing)
+                TrainInfoColumn(title: "Togtype", value: normalizedText(train.trainType) ?? "Ukjent", alignment: .trailing, valueWeight: .bold)
             }
 
             HStack(alignment: .top, spacing: 20) {
-                TrainInfoColumn(title: "ServiceTime", value: displayServiceTime(for: train))
+                TrainInfoColumn(title: "ServiceTime", value: displayServiceTime(for: train), valueWeight: .bold)
                 Spacer(minLength: 0)
-                TrainInfoColumn(title: "Koordinater", value: displayCoordinateText(for: train), alignment: .trailing)
+                TrainInfoColumn(title: "Koordinater", value: displayCoordinateText(for: train), alignment: .trailing, valueWeight: .bold)
             }
 
             if let totalDistanceText, let progress {
@@ -1913,14 +1913,14 @@ private struct RouteProgressView: View {
             ZStack {
                 HStack {
                     Text("0 km")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .font(.footnote.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.primary)
 
                     Spacer(minLength: 12)
 
                     Text(totalDistanceText)
-                        .font(.caption2.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.footnote.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.primary)
                 }
 
                 progressMarkerSummary
@@ -1936,7 +1936,7 @@ private struct RouteProgressView: View {
                     Image(systemName: "arrow.left")
                         .font(.caption2)
                     Text(passedDistanceText)
-                        .font(.caption2.monospacedDigit().weight(.bold))
+                        .font(.footnote.monospacedDigit().weight(.bold))
                 }
             }
 
@@ -1948,13 +1948,13 @@ private struct RouteProgressView: View {
             if let remainingDistanceText {
                 HStack(spacing: 3) {
                     Text(remainingDistanceText)
-                        .font(.caption2.monospacedDigit().weight(.bold))
+                        .font(.footnote.monospacedDigit().weight(.bold))
                     Image(systemName: "arrow.right")
                         .font(.caption2)
                 }
             }
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.primary)
     }
 }
 
