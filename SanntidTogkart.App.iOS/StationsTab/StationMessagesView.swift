@@ -134,8 +134,24 @@ struct StationMessagesView: View {
     @ViewBuilder
     private func stationMessageRow(_ stationMessage: StationMessage) -> some View {
         let trainDetail = viewModel.trainDetail(for: stationMessage)
+        if let trainDetail {
+            NavigationLink {
+                TrainStationsView(
+                    trainMessage: trainDetail,
+                    title: "Togrute"
+                )
+            } label: {
+                stationMessageCard(stationMessage, trainDetail: trainDetail)
+            }
+            .buttonStyle(.plain)
+        } else {
+            stationMessageCard(stationMessage, trainDetail: nil)
+        }
+    }
+
+    private func stationMessageCard(_ stationMessage: StationMessage, trainDetail: TrainMessage?) -> some View {
         let isPast = isPastStationMessage(stationMessage)
-        VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let lineNumber = displayLineNumber(for: trainDetail) {
                     Text(lineNumber)
@@ -261,6 +277,7 @@ struct StationMessagesView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(Rectangle())
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(AppTheme.border, lineWidth: 1)
