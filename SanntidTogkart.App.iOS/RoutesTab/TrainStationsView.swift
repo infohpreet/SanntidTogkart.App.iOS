@@ -22,7 +22,7 @@ struct TrainStationsView: View {
             } else if viewModel.stationMessages.isEmpty {
                 ContentUnavailableView(
                     "Ingen stasjonsmeldinger",
-                    systemImage: "building.2",
+                    systemImage: "tram.fill.tunnel",
                     description: Text("Ingen meldinger ble returnert for dette toget.")
                 )
             } else {

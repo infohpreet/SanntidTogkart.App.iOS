@@ -508,7 +508,7 @@ struct TrainMapTabView: View {
     private var markerTogglePanel: some View {
         HStack(spacing: 6) {
             markerToggle(
-                systemImage: "building.columns.fill",
+                systemImage: "tram.fill.tunnel",
                 isOn: $showsStationMarkers
             )
 
@@ -1586,27 +1586,9 @@ private struct StationMapAnnotation: View {
     let isHighlighted: Bool
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color(.darkGray))
-                .frame(width: isHighlighted ? 20 : 16, height: isHighlighted ? 20 : 16)
-                .overlay {
-                    Circle()
-                        .stroke(Color.white, lineWidth: 2)
-                }
-
-            Image(systemName: "building.columns.fill")
-                .font(isHighlighted ? .caption.bold() : .caption2.bold())
-                .foregroundStyle(.white)
-                .padding(isHighlighted ? 4 : 3)
-        }
-        .overlay(alignment: .bottom) {
-            Triangle()
-                .fill(Color.white)
-                .frame(width: isHighlighted ? 8 : 6, height: isHighlighted ? 5 : 4)
-                .offset(y: isHighlighted ? 3 : 2)
-        }
-        .shadow(color: Color.black.opacity(isHighlighted ? 0.24 : 0.18), radius: isHighlighted ? 6 : 4, y: 2)
+        Image(systemName: "tram.fill.tunnel")
+            .font(isHighlighted ? .body.bold() : .subheadline.bold())
+            .foregroundStyle(isHighlighted ? Color.accentColor : .primary)
     }
 }
 
@@ -2125,7 +2107,7 @@ private struct StationCountryFlagBadge: View {
             case "SE":
                 SmallSwedenFlagBadge()
             default:
-                Image(systemName: "building.columns.fill")
+                Image(systemName: "tram.fill.tunnel")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color(.darkGray))
                     .frame(width: 28, height: 28)

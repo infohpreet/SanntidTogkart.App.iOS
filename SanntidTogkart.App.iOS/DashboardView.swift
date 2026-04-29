@@ -36,7 +36,7 @@ struct DashboardView: View {
             StationsTabView()
             .tag(DashboardTab.stations)
             .tabItem {
-                tabItemLabel("Stasjoner", systemImage: "building.columns")
+                tabItemLabel("Stasjoner", systemImage: "tram.fill.tunnel")
             }
 
             SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)

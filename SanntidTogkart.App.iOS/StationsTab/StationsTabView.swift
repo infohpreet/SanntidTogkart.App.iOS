@@ -26,7 +26,7 @@ struct StationsTabView: View {
                 } else if viewModel.filteredStations.isEmpty {
                     ContentUnavailableView(
                         viewModel.searchText.isEmpty ? "Ingen stasjoner" : "Ingen treff",
-                        systemImage: "building.columns.fill",
+                        systemImage: "tram.fill.tunnel",
                         description: Text(
                             viewModel.searchText.isEmpty
                             ? "Ingen stasjoner ble returnert fra FeedHub."
@@ -209,7 +209,7 @@ struct StationsTabView: View {
             case "SE":
                 SwedenFlagBadge()
             default:
-                Image(systemName: "building.columns.fill")
+                Image(systemName: "tram.fill.tunnel")
                     .font(.headline)
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 42, height: 28)

@@ -22,7 +22,7 @@ struct StationMessagesView: View {
             } else if viewModel.stationMessages.isEmpty {
                 ContentUnavailableView(
                     "Ingen stasjonsmeldinger",
-                    systemImage: "building.2",
+                    systemImage: "tram.fill.tunnel",
                     description: Text("Ingen meldinger ble returnert for denne stasjonen.")
                 )
             } else {
@@ -328,7 +328,7 @@ struct StationMessagesView: View {
         case "SE":
             StationMessagesSwedenFlagBadge()
         default:
-            Image(systemName: "building.columns.fill")
+            Image(systemName: "tram.fill.tunnel")
                 .font(.headline)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 42, height: 28)

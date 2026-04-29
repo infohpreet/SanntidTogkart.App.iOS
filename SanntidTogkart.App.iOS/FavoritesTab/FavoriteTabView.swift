@@ -405,7 +405,7 @@ struct FavoriteTabView: View {
         case "SE":
             FavoriteSwedenFlagBadge()
         default:
-            Image(systemName: "building.columns.fill")
+            Image(systemName: "tram.fill.tunnel")
                 .font(.headline)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 42, height: 28)
