@@ -21,6 +21,7 @@ struct SettingsTabView: View {
                     onboardingCard
                     securityCard
                     actionCard
+                    appInfoCard
                 }
                 .padding(20)
                 .appReadableContentWidth()
@@ -75,6 +76,18 @@ struct SettingsTabView: View {
 
             infoRow(title: "Navn", value: user.displayName)
             infoRow(title: "Bruker", value: user.username)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var appInfoCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("App", systemImage: "info.circle")
+                .font(.headline)
+
+            infoRow(title: "Versjon", value: "\(appVersion) (\(appBuild))")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -220,5 +233,13 @@ struct SettingsTabView: View {
                 .multilineTextAlignment(.trailing)
         }
         .font(.subheadline)
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Ukjent"
+    }
+
+    private var appBuild: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Ukjent"
     }
 }
