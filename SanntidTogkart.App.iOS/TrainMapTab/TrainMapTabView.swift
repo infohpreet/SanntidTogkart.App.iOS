@@ -31,6 +31,7 @@ struct TrainMapTabView: View {
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
     @State private var pendingStationSelectionRequest: StationMapSelectionRequest?
+    @State private var shouldNavigateToCurrentLocation = false
     @State private var presentedTrainListEntries: [TrainListEntry] = []
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
@@ -63,6 +64,21 @@ struct TrainMapTabView: View {
                 visibleRegion = region
                 isZoomedOut = span.latitudeDelta > 1.6 || span.longitudeDelta > 1.6
                 isCountryZoomedOut = span.latitudeDelta > 8.5 || span.longitudeDelta > 8.5
+            }
+            .onChange(of: locationManager.currentLocation) { _, newValue in
+                guard shouldNavigateToCurrentLocation, let coordinate = newValue else {
+                    return
+                }
+
+                shouldNavigateToCurrentLocation = false
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    position = .region(
+                        MKCoordinateRegion(
+                            center: coordinate.clCoordinate,
+                            span: visibleRegion.span
+                        )
+                    )
+                }
             }
             .overlay(alignment: .topLeading) {
                 if let errorMessage = viewModel.errorMessage {
@@ -645,7 +661,19 @@ struct TrainMapTabView: View {
             case .denied, .restricted:
                 isLocationPermissionAlertPresented = true
             default:
-                locationManager.requestCurrentLocation()
+                if let currentLocation = locationManager.currentLocation {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        position = .region(
+                            MKCoordinateRegion(
+                                center: currentLocation.clCoordinate,
+                                span: visibleRegion.span
+                            )
+                        )
+                    }
+                } else {
+                    shouldNavigateToCurrentLocation = true
+                    locationManager.requestCurrentLocation()
+                }
             }
         } label: {
             Image(systemName: "location.fill")
@@ -1139,13 +1167,13 @@ private struct MapStatisticsCountryFlagBadge: View {
                     .fill(AppTheme.elevatedSurface)
                     .frame(width: 18, height: 12)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .stroke(AppTheme.border, lineWidth: 1)
                     }
             }
         }
         .frame(width: 18, height: 12)
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
     }
 }
 
@@ -2035,6 +2063,7 @@ private struct TrainListCountryFlagBadge: View {
                     .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 12))
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 
@@ -2103,6 +2132,7 @@ private struct StationCountryFlagBadge: View {
                     .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 9))
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 

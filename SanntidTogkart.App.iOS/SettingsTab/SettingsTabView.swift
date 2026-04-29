@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CoreLocation
 
 struct SettingsTabView: View {
     let user: EntraIDUser
@@ -9,6 +10,7 @@ struct SettingsTabView: View {
     @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
     @State private var isSwitchingEnvironment = false
+    @State private var locationAccessManager = SettingsLocationAccessManager()
 
     var body: some View {
         NavigationStack {
@@ -18,10 +20,11 @@ struct SettingsTabView: View {
                     accountCard
                     appearanceCard
                     environmentCard
-                    onboardingCard
                     securityCard
-                    actionCard
+                    locationCard
+                    onboardingCard
                     appInfoCard
+                    actionCard
                 }
                 .padding(20)
                 .appReadableContentWidth()
@@ -181,6 +184,40 @@ struct SettingsTabView: View {
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
     }
 
+    private var locationCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Posisjon", systemImage: "location")
+                .font(.headline)
+
+            Text("Aktiver nåværende posisjon for å kunne navigere kartet til din posisjon og bruke posisjon i relevante visninger.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .center, spacing: 12) {
+                Text(locationAccessManager.statusText)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(locationAccessManager.statusColor)
+
+                Spacer()
+
+                Toggle(
+                    "Bruk nåværende posisjon",
+                    isOn: Binding(
+                        get: { locationAccessManager.hasLocationAccess },
+                        set: { isEnabled in
+                            locationAccessManager.setLocationAccessEnabled(isEnabled)
+                        }
+                    )
+                )
+                .labelsHidden()
+                .tint(.accentColor)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
     private var appearanceCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Utseende", systemImage: "circle.lefthalf.filled")
@@ -243,3 +280,96 @@ struct SettingsTabView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Ukjent"
     }
 }
+@MainActor
+@Observable
+private final class SettingsLocationAccessManager: NSObject, CLLocationManagerDelegate {
+    var authorizationStatus: CLAuthorizationStatus
+
+    var hasLocationAccess: Bool {
+        authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+    }
+
+    var statusText: String {
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            "Nåværende posisjon er aktivert"
+        case .denied, .restricted:
+            "Tilgang er avslått"
+        case .notDetermined:
+            "Ikke aktivert"
+        @unknown default:
+            "Ukjent status"
+        }
+    }
+
+    var statusIconName: String {
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            "location.fill"
+        case .denied, .restricted:
+            "location.slash"
+        case .notDetermined:
+            "location"
+        @unknown default:
+            "questionmark.circle"
+        }
+    }
+
+    var statusColor: Color {
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            .green
+        case .denied, .restricted:
+            .orange
+        case .notDetermined:
+            .secondary
+        @unknown default:
+            .secondary
+        }
+    }
+
+    private let manager: CLLocationManager
+
+    override init() {
+        let manager = CLLocationManager()
+        self.manager = manager
+        self.authorizationStatus = manager.authorizationStatus
+        super.init()
+        manager.delegate = self
+    }
+
+    func setLocationAccessEnabled(_ isEnabled: Bool) {
+        if isEnabled {
+            switch authorizationStatus {
+            case .notDetermined:
+                manager.requestWhenInUseAuthorization()
+            case .denied, .restricted:
+                openAppSettings()
+            case .authorizedAlways, .authorizedWhenInUse:
+                return
+            @unknown default:
+                openAppSettings()
+            }
+            return
+        }
+
+        guard hasLocationAccess else {
+            return
+        }
+
+        openAppSettings()
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+
+        UIApplication.shared.open(url)
+    }
+}
+
