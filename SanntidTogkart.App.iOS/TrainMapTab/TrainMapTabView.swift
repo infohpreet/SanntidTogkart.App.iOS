@@ -37,6 +37,7 @@ struct TrainMapTabView: View {
         center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
         span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
     )
+    @State private var currentMapSpan = MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
     @State private var position: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
@@ -62,6 +63,7 @@ struct TrainMapTabView: View {
                 let region = expandedRegion(for: context.region)
                 let span = context.region.span
                 visibleRegion = region
+                currentMapSpan = span
                 isZoomedOut = span.latitudeDelta > 1.6 || span.longitudeDelta > 1.6
                 isCountryZoomedOut = span.latitudeDelta > 8.5 || span.longitudeDelta > 8.5
             }
@@ -75,7 +77,24 @@ struct TrainMapTabView: View {
                     position = .region(
                         MKCoordinateRegion(
                             center: coordinate.clCoordinate,
-                            span: visibleRegion.span
+                            span: currentMapSpan
+                        )
+                    )
+                }
+            }
+            .onChange(of: selectedTrain?.trainPosition?.geoJson.geometry.coordinates) { _, _ in
+                guard
+                    let selectedTrain,
+                    let coordinate = viewModel.mapCoordinate(for: selectedTrain)
+                else {
+                    return
+                }
+
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    position = .region(
+                        MKCoordinateRegion(
+                            center: coordinate,
+                            span: currentMapSpan
                         )
                     )
                 }
@@ -1587,8 +1606,14 @@ private struct StationMapAnnotation: View {
 
     var body: some View {
         Image(systemName: "tram.fill.tunnel")
-            .font(isHighlighted ? .body.bold() : .subheadline.bold())
-            .foregroundStyle(isHighlighted ? Color.accentColor : .primary)
+            .font(isHighlighted ? .caption2.bold() : .system(size: 8, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, isHighlighted ? 6 : 5)
+            .padding(.vertical, isHighlighted ? 4 : 3)
+            .background(
+                Color(.darkGray),
+                in: Circle()
+            )
     }
 }
 
