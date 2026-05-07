@@ -341,12 +341,34 @@ final class TrainMapTabViewModel {
     }
 
     var selectedTrainArrivalTimeText: String? {
-        selectedTrainStations
+        let arrivalDate = selectedTrainStations
             .reversed()
             .lazy
             .compactMap { $0.ata ?? $0.eta ?? $0.sta }
             .first
-            .map(formattedTimeText(for:))
+
+        guard let arrivalDate else {
+            return nil
+        }
+
+        let baseText = formattedTimeText(for: arrivalDate)
+
+        guard
+            let departureDate = selectedTrainDepartureDate
+        else {
+            return baseText
+        }
+
+        let calendar = Calendar.autoupdatingCurrent
+        let departureDay = calendar.startOfDay(for: departureDate)
+        let arrivalDay = calendar.startOfDay(for: arrivalDate)
+        let dayDifference = calendar.dateComponents([.day], from: departureDay, to: arrivalDay).day ?? 0
+        guard dayDifference > 0 else {
+            return baseText
+        }
+
+        let dayLabel = dayDifference == 1 ? "dag" : "dager"
+        return "\(baseText) (+\(dayDifference) \(dayLabel))"
     }
 
     var selectedTrainTravelTimeText: String? {

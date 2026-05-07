@@ -256,7 +256,7 @@ struct TrainStationsView: View {
             }
 
             HStack(spacing: 8) {
-                Text(stationMessage.originDate)
+                Text(stationDateText(for: stationMessage))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -419,9 +419,23 @@ struct TrainStationsView: View {
     private func displayTime(_ date: Date) -> String {
         date.formatted(
             .dateTime
-                .hour(.twoDigits(amPM: .omitted))
-                .minute(.twoDigits)
+            .hour(.twoDigits(amPM: .omitted))
+            .minute(.twoDigits)
         )
+    }
+
+    private func stationDateText(for stationMessage: StationMessage) -> String {
+        if let stationDate = stationMessage.ata
+            ?? stationMessage.atd
+            ?? stationMessage.eta
+            ?? stationMessage.etd
+            ?? stationMessage.sta
+            ?? stationMessage.std
+        {
+            return AppTime.localDateString(from: stationDate)
+        }
+
+        return stationMessage.originDate
     }
 
     private func scheduledDepartureTime(for stationMessage: StationMessage) -> String {
