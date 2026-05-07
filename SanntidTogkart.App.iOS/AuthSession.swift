@@ -119,6 +119,16 @@ final class AuthSession {
         userDefaults.removeObject(forKey: StorageKeys.currentUser)
     }
 
+    func resetForEnvironmentChange(message: String) {
+        AppNavigationCenter.shared.resetToMap()
+        currentUser = nil
+        Self.currentUserSnapshot = nil
+        Self.currentAccessToken = nil
+        errorMessage = message
+        shouldPromptForBiometricsAfterLogin = false
+        userDefaults.removeObject(forKey: StorageKeys.currentUser)
+    }
+
     func markBiometricPromptHandled() {
         shouldPromptForBiometricsAfterLogin = false
         userDefaults.set(BiometricPrompt.currentVersion, forKey: StorageKeys.biometricPromptVersion)

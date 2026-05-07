@@ -9,6 +9,8 @@ struct SettingsTabView: View {
     @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
     @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
+    @State private var pendingEnvironment: AppEnvironment?
+    @State private var isShowingEnvironmentChangeConfirmation = false
     @State private var isSwitchingEnvironment = false
     @State private var locationAccessManager = SettingsLocationAccessManager()
 
@@ -31,6 +33,37 @@ struct SettingsTabView: View {
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Innstillinger")
+        }
+        .alert("Bytte miljø?", isPresented: $isShowingEnvironmentChangeConfirmation) {
+            Button("Avbryt", role: .cancel) {
+                pendingEnvironment = nil
+                selectedEnvironment = AuthConfig.currentEnvironment
+            }
+            Button("Fortsett") {
+                guard let pendingEnvironment else {
+                    return
+                }
+
+                Task {
+                    isSwitchingEnvironment = true
+                    let previousConfiguration = AuthConfig.currentEnvironment.configuration
+                    let nextConfiguration = pendingEnvironment.configuration
+                    await SignalRService.switchEnvironment(to: pendingEnvironment)
+                    if requiresSignInAfterEnvironmentSwitch(
+                        previousConfiguration: previousConfiguration,
+                        nextConfiguration: nextConfiguration
+                    ) {
+                        authSession.resetForEnvironmentChange(
+                            message: "Miljøet ble byttet. Logg inn på nytt for å hente tilgang til det nye miljøet."
+                        )
+                    }
+                    self.pendingEnvironment = nil
+                    selectedEnvironment = AuthConfig.currentEnvironment
+                    isSwitchingEnvironment = false
+                }
+            }
+        } message: {
+            Text("Bytte av miljø kan kreve ny innlogging før sanntidsdata fungerer igjen. Vil du fortsette?")
         }
     }
 
@@ -102,24 +135,17 @@ struct SettingsTabView: View {
             Label("Miljø", systemImage: "network")
                 .font(.headline)
 
-            Text("Bytt SignalR- og Entra-konfigurasjon uten å starte appen på nytt.")
+            Text("Bytt SignalR- og Entra-konfigurasjon. Ny innlogging kan være nødvendig etter miljøbytte.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Picker("Miljø", selection: $selectedEnvironment) {
+            Picker("Miljø", selection: environmentSelectionBinding) {
                 ForEach(AppEnvironment.allCases) { environment in
                     Text(environment.title).tag(environment)
                 }
             }
             .pickerStyle(.segmented)
             .disabled(isSwitchingEnvironment)
-            .onChange(of: selectedEnvironment) { _, newValue in
-                Task {
-                    isSwitchingEnvironment = true
-                    await SignalRService.switchEnvironment(to: newValue)
-                    isSwitchingEnvironment = false
-                }
-            }
             if isSwitchingEnvironment {
                 HStack {
                     Spacer()
@@ -279,6 +305,32 @@ struct SettingsTabView: View {
     private var appBuild: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Ukjent"
     }
+
+    private var environmentSelectionBinding: Binding<AppEnvironment> {
+        Binding(
+            get: { selectedEnvironment },
+            set: { newValue in
+                guard !isSwitchingEnvironment else {
+                    return
+                }
+
+                guard newValue != selectedEnvironment else {
+                    return
+                }
+
+                pendingEnvironment = newValue
+                isShowingEnvironmentChangeConfirmation = true
+            }
+        )
+    }
+
+    private func requiresSignInAfterEnvironmentSwitch(
+        previousConfiguration: EnvironmentConfiguration,
+        nextConfiguration: EnvironmentConfiguration
+    ) -> Bool {
+        previousConfiguration.azureClientID != nextConfiguration.azureClientID ||
+        previousConfiguration.azureTenantID != nextConfiguration.azureTenantID
+    }
 }
 @MainActor
 @Observable
@@ -372,4 +424,3 @@ private final class SettingsLocationAccessManager: NSObject, CLLocationManagerDe
         UIApplication.shared.open(url)
     }
 }
-

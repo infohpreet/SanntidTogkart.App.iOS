@@ -604,7 +604,10 @@ final class SignalRService {
                 throw SignalRServiceError.invalidInvocationArguments
             }
 
-            let argumentData = try JSONSerialization.data(withJSONObject: firstArgument)
+            let argumentData = try JSONSerialization.data(
+                withJSONObject: firstArgument,
+                options: [.fragmentsAllowed]
+            )
 
             switch target {
             case "ReceiveTrainMetrics":
