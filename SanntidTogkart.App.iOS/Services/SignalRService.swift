@@ -302,7 +302,7 @@ final class SignalRService {
         connectionCenter.update(state: .connecting)
         onStateChange?(.connecting)
 
-        let accessToken = try await fetchAccessToken()
+        let accessToken = try await AuthSession.validAccessToken()
         let negotiation = try await negotiate(accessToken: accessToken)
         let connectionID = negotiation.connectionToken ?? negotiation.connectionId
 
@@ -323,39 +323,6 @@ final class SignalRService {
         try await sendGetTrainMetrics(on: webSocketTask)
         try await flushPendingRequests(on: webSocketTask)
         try await receiveLoop(on: webSocketTask)
-    }
-
-    private func fetchAccessToken() async throws -> String {
-        var lastError: Error?
-
-        for scope in configuration.tokenScopes {
-            do {
-                return try await requestAccessToken(scope: scope)
-            } catch {
-                lastError = error
-            }
-        }
-
-        throw lastError ?? SignalRServiceError.failedToFetchAccessToken
-    }
-
-    private func requestAccessToken(scope: String) async throws -> String {
-        let tokenURL = URL(string: "https://login.microsoftonline.com/\(configuration.azureTenantID)/oauth2/v2.0/token")!
-        var request = URLRequest(url: tokenURL)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = formEncodedBody([
-            "client_id": configuration.azureClientID,
-            "client_secret": configuration.azureClientSecret,
-            "grant_type": "client_credentials",
-            "scope": scope
-        ])
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try validateHTTPResponse(response, data: data)
-
-        let tokenResponse = try decoder.decode(AzureTokenResponse.self, from: data)
-        return tokenResponse.accessToken
     }
 
     private func negotiate(accessToken: String) async throws -> SignalRNegotiationResponse {
@@ -805,14 +772,6 @@ final class SignalRService {
         }
     }
 
-    private func formEncodedBody(_ values: [String: String]) -> Data? {
-        var components = URLComponents()
-        components.queryItems = values.map { key, value in
-            URLQueryItem(name: key, value: value)
-        }
-        return components.percentEncodedQuery?.data(using: .utf8)
-    }
-
     private var recordSeparator: Character {
         "\u{1e}"
     }
@@ -1129,29 +1088,11 @@ private let dateOnlyFormatter: DateFormatter = {
 
 private struct FeedHubSignalRConfiguration {
     let hubURL: URL
-    let azureClientID: String
-    let azureTenantID: String
-    let azureClientSecret: String
-    let tokenScopes: [String]
 
     static var current: FeedHubSignalRConfiguration {
         FeedHubSignalRConfiguration(
-        hubURL: AuthConfig.hubURL,
-        azureClientID: AuthConfig.azureClientID,
-        azureTenantID: AuthConfig.azureTenantID,
-        azureClientSecret: AuthConfig.azureClientSecret,
-        tokenScopes: [
-            "api://\(AuthConfig.azureClientID)/.default"
-        ]
+            hubURL: AuthConfig.hubURL
         )
-    }
-}
-
-private struct AzureTokenResponse: Decodable {
-    let accessToken: String
-
-    private enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
     }
 }
 
@@ -1181,7 +1122,7 @@ private enum SignalRArgument: Encodable {
 }
 
 private enum SignalRServiceError: LocalizedError {
-    case failedToFetchAccessToken
+    case missingAccessToken
     case httpError(statusCode: Int, message: String)
     case invalidHTTPResponse
     case invalidHubURL
@@ -1194,8 +1135,8 @@ private enum SignalRServiceError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .failedToFetchAccessToken:
-            return "Kunne ikke hente access token fra Azure."
+        case .missingAccessToken:
+            return "Du må være logget inn for å koble til sanntidsdata."
         case .httpError(let statusCode, let message):
             return "HTTP \(statusCode): \(message)"
         case .invalidHTTPResponse:

@@ -26,8 +26,9 @@ enum AuthConfig {
     static let ssoScopes = [
         "openid",
         "profile",
+        "email",
         "offline_access",
-        "User.Read"
+        "api://\(azureClientID)/access_as_user"
     ]
 
     private enum StorageKeys {

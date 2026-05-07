@@ -79,6 +79,8 @@ struct ContentView: View {
             displayName: "Simulator User",
             username: "simulator@banenor.no",
             accessToken: "simulator-access-token",
+            refreshToken: nil,
+            accessTokenExpirationDate: nil,
             profileImageData: nil
         )
         #else

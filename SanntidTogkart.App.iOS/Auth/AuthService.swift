@@ -7,6 +7,8 @@ struct EntraIDUser: Codable {
     let displayName: String
     let username: String
     let accessToken: String
+    let refreshToken: String?
+    let accessTokenExpirationDate: Date?
     let profileImageData: Data?
 }
 
@@ -32,7 +34,10 @@ final class AuthService: NSObject {
             authorizationCode: authorizationCode,
             codeVerifier: codeVerifier
         )
-        let claims = try decodeIDTokenClaims(tokenResponse.idToken)
+        guard let idToken = tokenResponse.idToken else {
+            throw EntraIDAuthError.invalidIDToken
+        }
+        let claims = try decodeIDTokenClaims(idToken)
         let displayName = claims.displayName ?? claims.preferredUsername ?? "Bane NOR"
         let username = claims.preferredUsername ?? claims.email ?? displayName
         let profileImageData = try? await fetchProfilePhoto(accessToken: tokenResponse.accessToken)
@@ -41,7 +46,26 @@ final class AuthService: NSObject {
             displayName: displayName,
             username: username,
             accessToken: tokenResponse.accessToken,
+            refreshToken: tokenResponse.refreshToken,
+            accessTokenExpirationDate: tokenResponse.accessTokenExpirationDate,
             profileImageData: profileImageData
+        )
+    }
+
+    func refreshAccessToken(for user: EntraIDUser) async throws -> EntraIDUser {
+        guard let refreshToken = user.refreshToken, !refreshToken.isEmpty else {
+            throw EntraIDAuthError.missingRefreshToken
+        }
+
+        let tokenResponse = try await refreshTokens(refreshToken: refreshToken)
+
+        return EntraIDUser(
+            displayName: user.displayName,
+            username: user.username,
+            accessToken: tokenResponse.accessToken,
+            refreshToken: tokenResponse.refreshToken ?? user.refreshToken,
+            accessTokenExpirationDate: tokenResponse.accessTokenExpirationDate,
+            profileImageData: user.profileImageData
         )
     }
 
@@ -154,6 +178,24 @@ final class AuthService: NSObject {
         return try JSONDecoder().decode(EntraTokenResponse.self, from: data)
     }
 
+    private func refreshTokens(refreshToken: String) async throws -> EntraTokenResponse {
+        let config = AuthConfig.current
+        var request = URLRequest(url: config.entraTokenURL)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = formEncodedBody([
+            "client_id": config.azureClientID,
+            "grant_type": "refresh_token",
+            "refresh_token": refreshToken,
+            "scope": AuthConfig.ssoScopes.joined(separator: " ")
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validateHTTPResponse(response, data: data)
+
+        return try JSONDecoder().decode(EntraTokenResponse.self, from: data)
+    }
+
     private func decodeIDTokenClaims(_ idToken: String) throws -> EntraIDTokenClaims {
         let parts = idToken.split(separator: ".")
         guard parts.count >= 2 else {
@@ -253,11 +295,23 @@ extension AuthService: ASWebAuthenticationPresentationContextProviding {
 
 private struct EntraTokenResponse: Decodable {
     let accessToken: String
-    let idToken: String
+    let idToken: String?
+    let refreshToken: String?
+    let expiresIn: Int?
+
+    var accessTokenExpirationDate: Date? {
+        guard let expiresIn else {
+            return nil
+        }
+
+        return Date().addingTimeInterval(TimeInterval(expiresIn))
+    }
 
     private enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case idToken = "id_token"
+        case refreshToken = "refresh_token"
+        case expiresIn = "expires_in"
     }
 }
 
@@ -283,6 +337,7 @@ private enum EntraIDAuthError: LocalizedError {
     case invalidState
     case missingAuthorizationCode
     case missingCallbackURL
+    case missingRefreshToken
     case providerError(String, String?)
 
     var errorDescription: String? {
@@ -305,6 +360,8 @@ private enum EntraIDAuthError: LocalizedError {
             return "Entra ID returnerte ikke authorization code."
         case .missingCallbackURL:
             return "Entra ID returnerte ikke callback-URL."
+        case .missingRefreshToken:
+            return "Mangler refresh token for å fornye innloggingen."
         case .providerError(let error, let description):
             return description ?? error
         }

@@ -5,6 +5,11 @@ import Observation
 @MainActor
 @Observable
 final class AuthSession {
+    private static let tokenRefreshLeadTime: TimeInterval = 300
+    private static let sharedAuthService = AuthService()
+    static private(set) var currentAccessToken: String?
+    private static var currentUserSnapshot: EntraIDUser?
+
     var currentUser: EntraIDUser?
     var errorMessage: String?
     var isAuthenticating = false
@@ -35,6 +40,8 @@ final class AuthSession {
         self.isBiometricEnabled = Foundation.UserDefaults.standard.bool(forKey: StorageKeys.biometricsEnabled)
         self.persistedUser = Self.loadPersistedUser(from: Foundation.UserDefaults.standard)
         self.currentUser = nil
+        Self.currentUserSnapshot = self.persistedUser
+        Self.currentAccessToken = self.persistedUser?.accessToken
     }
 
     init(authService: AuthService) {
@@ -43,6 +50,8 @@ final class AuthSession {
         self.isBiometricEnabled = Foundation.UserDefaults.standard.bool(forKey: StorageKeys.biometricsEnabled)
         self.persistedUser = Self.loadPersistedUser(from: Foundation.UserDefaults.standard)
         self.currentUser = nil
+        Self.currentUserSnapshot = self.persistedUser
+        Self.currentAccessToken = self.persistedUser?.accessToken
     }
 
     func restoreSessionIfNeeded() async {
@@ -60,6 +69,8 @@ final class AuthSession {
             _ = try await authenticateWithBiometrics(reason: "Bruk Face ID for å åpne Sanntid Togkart.")
             await prepareDashboardTransition()
             currentUser = persistedUser
+            Self.currentUserSnapshot = persistedUser
+            Self.currentAccessToken = persistedUser.accessToken
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -77,6 +88,8 @@ final class AuthSession {
         do {
             let user = try await authService.signIn()
             currentUser = user
+            Self.currentUserSnapshot = user
+            Self.currentAccessToken = user.accessToken
             if isBiometricEnabled {
                 persist(user: user)
             } else if userDefaults.integer(forKey: StorageKeys.biometricPromptVersion) < BiometricPrompt.currentVersion {
@@ -96,6 +109,8 @@ final class AuthSession {
     func signOut() {
         AppNavigationCenter.shared.resetToMap()
         currentUser = nil
+        Self.currentUserSnapshot = nil
+        Self.currentAccessToken = nil
         errorMessage = nil
         isBiometricEnabled = false
         shouldPromptForBiometricsAfterLogin = false
@@ -107,6 +122,24 @@ final class AuthSession {
     func markBiometricPromptHandled() {
         shouldPromptForBiometricsAfterLogin = false
         userDefaults.set(BiometricPrompt.currentVersion, forKey: StorageKeys.biometricPromptVersion)
+    }
+
+    static func validAccessToken() async throws -> String {
+        guard var user = currentUserSnapshot ?? loadPersistedUser(from: .standard) else {
+            throw AuthSessionError.missingSignedInUser
+        }
+
+        if !shouldRefreshToken(for: user), !user.accessToken.isEmpty {
+            currentUserSnapshot = user
+            currentAccessToken = user.accessToken
+            return user.accessToken
+        }
+
+        user = try await sharedAuthService.refreshAccessToken(for: user)
+        currentUserSnapshot = user
+        currentAccessToken = user.accessToken
+        persist(user: user, to: .standard)
+        return user.accessToken
     }
 
     func setBiometricEnabled(_ isEnabled: Bool) async -> Bool {
@@ -134,11 +167,7 @@ final class AuthSession {
     }
 
     private func persist(user: EntraIDUser) {
-        guard let data = try? JSONEncoder().encode(user) else {
-            return
-        }
-
-        userDefaults.set(data, forKey: StorageKeys.currentUser)
+        Self.persist(user: user, to: userDefaults)
     }
 
     private static func loadPersistedUser(from userDefaults: UserDefaults) -> EntraIDUser? {
@@ -147,6 +176,24 @@ final class AuthSession {
         }
 
         return try? JSONDecoder().decode(EntraIDUser.self, from: data)
+    }
+
+    private static func persist(user: EntraIDUser, to userDefaults: UserDefaults) {
+        guard let data = try? JSONEncoder().encode(user) else {
+            return
+        }
+
+        userDefaults.set(data, forKey: StorageKeys.currentUser)
+    }
+
+    private static func shouldRefreshToken(for user: EntraIDUser) -> Bool {
+        guard
+            let accessTokenExpirationDate = user.accessTokenExpirationDate
+        else {
+            return false
+        }
+
+        return accessTokenExpirationDate.timeIntervalSinceNow <= tokenRefreshLeadTime
     }
 
     private func authenticateWithBiometrics(reason: String) async throws -> Bool {
@@ -182,11 +229,14 @@ final class AuthSession {
 
 private enum AuthSessionError: LocalizedError {
     case biometricsUnavailable
+    case missingSignedInUser
 
     var errorDescription: String? {
         switch self {
         case .biometricsUnavailable:
             return "Face ID er ikke tilgjengelig på denne enheten."
+        case .missingSignedInUser:
+            return "Du må være logget inn for å hente tilgangstoken."
         }
     }
 }
