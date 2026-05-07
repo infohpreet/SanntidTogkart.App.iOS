@@ -39,6 +39,7 @@ final class StationsTabViewModel {
             }
 
             self.currentLocation = location
+            self.applySearch()
         }
 
         service.onStations = { [weak self] stations in
@@ -118,16 +119,47 @@ final class StationsTabViewModel {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !query.isEmpty else {
-            filteredStations = stations
+            filteredStations = sortedStations(stations)
             return
         }
 
-        filteredStations = stations.filter { station in
-            station.name.localizedCaseInsensitiveContains(query)
-                || station.shortName.localizedCaseInsensitiveContains(query)
-                || station.countryCode.localizedCaseInsensitiveContains(query)
-                || (station.plcCode?.localizedCaseInsensitiveContains(query) ?? false)
+        filteredStations = sortedStations(
+            stations.filter { station in
+                station.name.localizedCaseInsensitiveContains(query)
+                    || station.shortName.localizedCaseInsensitiveContains(query)
+                    || station.countryCode.localizedCaseInsensitiveContains(query)
+                    || (station.plcCode?.localizedCaseInsensitiveContains(query) ?? false)
+            }
+        )
+    }
+
+    private func sortedStations(_ stations: [TraseStation]) -> [TraseStation] {
+        guard let currentLocation else {
+            return stations
         }
+
+        return stations.sorted { lhs, rhs in
+            let lhsDistance = distance(from: currentLocation, to: lhs) ?? .greatestFiniteMagnitude
+            let rhsDistance = distance(from: currentLocation, to: rhs) ?? .greatestFiniteMagnitude
+
+            if lhsDistance == rhsDistance {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+
+            return lhsDistance < rhsDistance
+        }
+    }
+
+    private func distance(from currentLocation: CLLocation, to station: TraseStation) -> CLLocationDistance? {
+        guard
+            let latitude = station.latitude,
+            let longitude = station.longitude
+        else {
+            return nil
+        }
+
+        let stationLocation = CLLocation(latitude: latitude, longitude: longitude)
+        return currentLocation.distance(from: stationLocation)
     }
 }
 

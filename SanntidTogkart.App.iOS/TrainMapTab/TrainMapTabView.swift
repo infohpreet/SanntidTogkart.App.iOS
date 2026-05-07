@@ -1602,18 +1602,27 @@ private struct RouteStartAnnotation: View {
 }
 
 private struct StationMapAnnotation: View {
+    @Environment(\.colorScheme) private var colorScheme
     let isHighlighted: Bool
 
     var body: some View {
         Image(systemName: "tram.fill.tunnel")
             .font(isHighlighted ? .caption2.bold() : .system(size: 8, weight: .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(iconColor)
             .padding(.horizontal, isHighlighted ? 6 : 5)
             .padding(.vertical, isHighlighted ? 4 : 3)
             .background(
-                Color(.darkGray),
+                backgroundColor,
                 in: Circle()
             )
+    }
+
+    private var iconColor: Color {
+        colorScheme == .dark ? Color(.darkGray) : .white
+    }
+
+    private var backgroundColor: Color {
+        colorScheme == .dark ? .white : Color(.darkGray)
     }
 }
 
