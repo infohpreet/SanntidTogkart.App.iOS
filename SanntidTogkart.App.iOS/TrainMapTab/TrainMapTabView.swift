@@ -1723,6 +1723,16 @@ private struct SelectedTrainCard: View {
                 Spacer(minLength: 8)
 
                 HStack(spacing: 8) {
+                    Button(action: onOpenRoute) {
+                        Image(systemName: "arrow.triangle.swap")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.black.opacity(0.05), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Åpne togrute")
+
                     Button(action: onCollapse) {
                         Image(systemName: "chevron.up")
                             .font(.caption.weight(.bold))
