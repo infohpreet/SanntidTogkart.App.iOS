@@ -23,13 +23,15 @@ enum AuthConfig {
     static var entraTokenURL: URL { current.entraTokenURL }
     static let ssoCallbackScheme = "sanntidtogkart"
     static let ssoRedirectURI = "\(ssoCallbackScheme)://auth"
-    static let ssoScopes = [
-        "openid",
-        "profile",
-        "email",
-        "offline_access",
-        "api://\(azureClientID)/access_as_user"
-    ]
+    static var ssoScopes: [String] {
+        [
+            "openid",
+            "profile",
+            "email",
+            "offline_access",
+            "api://\(azureClientID)/access_as_user"
+        ]
+    }
 
     private enum StorageKeys {
         static let environment = "app.environment"

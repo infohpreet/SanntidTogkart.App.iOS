@@ -40,7 +40,7 @@ final class AuthService: NSObject {
         let claims = try decodeIDTokenClaims(idToken)
         let displayName = claims.displayName ?? claims.preferredUsername ?? "Bane NOR"
         let username = claims.preferredUsername ?? claims.email ?? displayName
-        let profileImageData = try? await fetchProfilePhoto(accessToken: tokenResponse.accessToken)
+        let profileImageData = try? await fetchProfilePhoto(refreshToken: tokenResponse.refreshToken)
 
         return EntraIDUser(
             displayName: displayName,
@@ -57,15 +57,22 @@ final class AuthService: NSObject {
             throw EntraIDAuthError.missingRefreshToken
         }
 
-        let tokenResponse = try await refreshTokens(refreshToken: refreshToken)
+        let tokenResponse = try await refreshTokens(refreshToken: refreshToken, scopes: AuthConfig.ssoScopes)
+        let nextRefreshToken = tokenResponse.refreshToken ?? user.refreshToken
+        let profileImageData: Data?
+        if let existingProfileImageData = user.profileImageData {
+            profileImageData = existingProfileImageData
+        } else {
+            profileImageData = try? await fetchProfilePhoto(refreshToken: nextRefreshToken)
+        }
 
         return EntraIDUser(
             displayName: user.displayName,
             username: user.username,
             accessToken: tokenResponse.accessToken,
-            refreshToken: tokenResponse.refreshToken ?? user.refreshToken,
+            refreshToken: nextRefreshToken,
             accessTokenExpirationDate: tokenResponse.accessTokenExpirationDate,
-            profileImageData: user.profileImageData
+            profileImageData: profileImageData
         )
     }
 
@@ -178,7 +185,10 @@ final class AuthService: NSObject {
         return try JSONDecoder().decode(EntraTokenResponse.self, from: data)
     }
 
-    private func refreshTokens(refreshToken: String) async throws -> EntraTokenResponse {
+    private func refreshTokens(
+        refreshToken: String,
+        scopes: [String]
+    ) async throws -> EntraTokenResponse {
         let config = AuthConfig.current
         var request = URLRequest(url: config.entraTokenURL)
         request.httpMethod = "POST"
@@ -187,7 +197,7 @@ final class AuthService: NSObject {
             "client_id": config.azureClientID,
             "grant_type": "refresh_token",
             "refresh_token": refreshToken,
-            "scope": AuthConfig.ssoScopes.joined(separator: " ")
+            "scope": scopes.joined(separator: " ")
         ])
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -213,6 +223,19 @@ final class AuthService: NSObject {
         }
 
         return try JSONDecoder().decode(EntraIDTokenClaims.self, from: data)
+    }
+
+    private func fetchProfilePhoto(refreshToken: String?) async throws -> Data? {
+        guard let refreshToken, !refreshToken.isEmpty else {
+            return nil
+        }
+
+        let graphTokenResponse = try await refreshTokens(
+            refreshToken: refreshToken,
+            scopes: ["https://graph.microsoft.com/User.Read"]
+        )
+
+        return try await fetchProfilePhoto(accessToken: graphTokenResponse.accessToken)
     }
 
     private func fetchProfilePhoto(accessToken: String) async throws -> Data? {

@@ -46,17 +46,10 @@ struct SettingsTabView: View {
 
                 Task {
                     isSwitchingEnvironment = true
-                    let previousConfiguration = AuthConfig.currentEnvironment.configuration
-                    let nextConfiguration = pendingEnvironment.configuration
                     await SignalRService.switchEnvironment(to: pendingEnvironment)
-                    if requiresSignInAfterEnvironmentSwitch(
-                        previousConfiguration: previousConfiguration,
-                        nextConfiguration: nextConfiguration
-                    ) {
-                        authSession.resetForEnvironmentChange(
-                            message: "Miljøet ble byttet. Logg inn på nytt for å hente tilgang til det nye miljøet."
-                        )
-                    }
+                    authSession.resetForEnvironmentChange(
+                        message: "Miljøet ble byttet. Logg inn på nytt for å hente tilgang til det nye miljøet."
+                    )
                     self.pendingEnvironment = nil
                     selectedEnvironment = AuthConfig.currentEnvironment
                     isSwitchingEnvironment = false
@@ -324,13 +317,6 @@ struct SettingsTabView: View {
         )
     }
 
-    private func requiresSignInAfterEnvironmentSwitch(
-        previousConfiguration: EnvironmentConfiguration,
-        nextConfiguration: EnvironmentConfiguration
-    ) -> Bool {
-        previousConfiguration.azureClientID != nextConfiguration.azureClientID ||
-        previousConfiguration.azureTenantID != nextConfiguration.azureTenantID
-    }
 }
 @MainActor
 @Observable
