@@ -3,7 +3,7 @@ import Observation
 
 enum DashboardTab: Hashable {
     case map
-    case favorites
+    case trains
     case routes
     case stations
     case settings

@@ -21,10 +21,10 @@ struct DashboardView: View {
                 .environment(\.symbolVariants, .none)
             }
 
-            FavoriteTabView()
-            .tag(DashboardTab.favorites)
+            TrainsTabView()
+            .tag(DashboardTab.trains)
             .tabItem {
-                tabItemLabel("Favoritter", systemImage: "star")
+                tabItemLabel("Tog", systemImage: "clock")
             }
 
             RoutesTabView()

@@ -19,9 +19,9 @@ struct AppIntroductionView: View {
             accentColor: Color.orange
         ),
         IntroductionPage(
-            title: "Favoritter og raske valg",
-            subtitle: "Lag favorittstasjoner, apne meldinger med ett trykk og hopp rett til togdetaljer.",
-            systemImage: "star.circle",
+            title: "Stasjoner og ruter",
+            subtitle: "Finn stasjoner raskt, apne meldinger med ett trykk og hopp rett til togdetaljer.",
+            systemImage: "tram.circle",
             accentColor: Color.green
         ),
         IntroductionPage(
