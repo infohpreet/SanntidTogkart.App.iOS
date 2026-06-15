@@ -7,10 +7,6 @@ struct TrainListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(station.name)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.primary)
-
             Text(stationMetadataLine)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
@@ -21,8 +17,7 @@ struct TrainListView: View {
         .appReadableContentWidth()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(AppTheme.background.ignoresSafeArea())
-        .navigationTitle("Tog")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(station.name)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

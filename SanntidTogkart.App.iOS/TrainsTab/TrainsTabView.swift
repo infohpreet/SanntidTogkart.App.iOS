@@ -3,7 +3,6 @@ import Observation
 import SwiftUI
 
 struct TrainsTabView: View {
-    @FocusState private var isSearchFocused: Bool
     @State private var favoritesStore = TrainStationFavoritesStore.shared
     @State private var lastUsedStore = TrainStationLastUsedStore.shared
     @State private var isTrainListPresented = false
@@ -13,13 +12,10 @@ struct TrainsTabView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                searchField
-
+            Group {
                 if viewModel.isLoading && viewModel.stations.isEmpty {
                     ProgressView("Laster stasjoner...")
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 24)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let errorMessage = viewModel.errorMessage, viewModel.stations.isEmpty {
                     ContentUnavailableView(
                         "Kunne ikke hente stasjoner",
@@ -28,17 +24,14 @@ struct TrainsTabView: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if shouldShowDropdown {
-                    stationDropdown
+                    searchResults
                 } else {
                     stationSections
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .appReadableContentWidth()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Tog")
+            .searchable(text: $searchText, prompt: "Søk etter stasjon")
             .navigationDestination(isPresented: $isTrainListPresented) {
                 if let selectedStation {
                     TrainListView(station: selectedStation)
@@ -93,7 +86,10 @@ struct TrainsTabView: View {
                     .frame(maxWidth: .infinity, minHeight: 240)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
             .padding(.bottom, 12)
+            .appReadableContentWidth()
         }
         .scrollIndicators(.hidden)
     }
@@ -179,16 +175,25 @@ struct TrainsTabView: View {
         HStack(spacing: 12) {
             stationBullet(bullet)
 
-            Text(station.name)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(station.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                if let distanceText = viewModel.distanceText(for: station) {
+                    Text(distanceText)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
 
             Spacer(minLength: 0)
         }
         .padding(.leading, 24)
         .padding(.trailing, 4)
-        .padding(.vertical, 10)
+        .padding(.vertical, viewModel.distanceText(for: station) == nil ? 10 : 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
@@ -196,43 +201,18 @@ struct TrainsTabView: View {
     private func selectStation(_ station: TraseStation) {
         lastUsedStore.record(station)
         selectedStation = station
-        isSearchFocused = false
         isTrainListPresented = true
     }
 
-    private var searchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            TextField("Søk etter stasjon", text: $searchText)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .focused($isSearchFocused)
-                .submitLabel(.search)
-
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                    viewModel.updateSearchText("")
-                    isSearchFocused = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Tøm søk")
-            }
+    private var searchResults: some View {
+        ScrollView {
+            stationDropdown
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
+                .appReadableContentWidth()
         }
-        .padding(.horizontal, 14)
-        .frame(height: 48)
-        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(AppTheme.border, lineWidth: 1)
-        }
+        .scrollIndicators(.hidden)
     }
 
     private var stationDropdown: some View {
@@ -274,10 +254,19 @@ struct TrainsTabView: View {
         HStack(alignment: .center, spacing: 10) {
             dropdownCountryFlagBadge(for: station)
 
-            Text(station.name)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(station.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                if let distanceText = viewModel.distanceText(for: station) {
+                    Text(distanceText)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
 
             Spacer(minLength: 8)
 
@@ -314,9 +303,10 @@ struct TrainsTabView: View {
                 .fill(Color.accentColor)
                 .frame(width: 10, height: 10)
         case .favorite:
-            Image(systemName: "star.fill")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.yellow)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.yellow)
+                .frame(width: 10, height: 10)
+                .rotationEffect(.degrees(45))
                 .frame(width: 14, height: 14)
         case .recent:
             RoundedRectangle(cornerRadius: 3)
@@ -396,7 +386,7 @@ private final class TrainsTabViewModel {
     private var hasStarted = false
     private var searchText = ""
     private let nearestStationLimit = 3
-    private let visibleStationLimit = 4
+    private let visibleStationLimit = 6
 
     init() {
         self.service = SignalRService()
@@ -451,6 +441,25 @@ private final class TrainsTabViewModel {
     func updateSearchText(_ text: String) {
         searchText = text
         applySearch()
+    }
+
+    func distanceText(for station: TraseStation) -> String? {
+        guard
+            let currentLocation,
+            let latitude = station.latitude,
+            let longitude = station.longitude
+        else {
+            return nil
+        }
+
+        let stationLocation = CLLocation(latitude: latitude, longitude: longitude)
+        let distance = currentLocation.distance(from: stationLocation)
+
+        if distance < 1000 {
+            return "\(Int(distance.rounded())) m"
+        }
+
+        return String(format: "%.1f km", distance / 1000)
     }
 
     private func applySearch() {
