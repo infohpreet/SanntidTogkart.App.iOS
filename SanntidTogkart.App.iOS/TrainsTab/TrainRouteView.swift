@@ -164,7 +164,7 @@ struct TrainRouteView: View {
             timeColumn(for: message, index: index)
                 .frame(width: 56, alignment: .leading)
 
-            timelineMarker(for: index)
+            timelineMarker(for: index, totalCount: viewModel.stationMessages.count)
                 .frame(width: 32, height: 56)
 
             Text(viewModel.stationName(for: message))
@@ -207,18 +207,20 @@ struct TrainRouteView: View {
         }
     }
 
-    private func timelineMarker(for index: Int) -> some View {
+    private func timelineMarker(for index: Int, totalCount: Int) -> some View {
         let currentIndex = viewModel.currentRouteIndex
         let isCurrent = index == currentIndex
         let isPassed = index < currentIndex
+        let isFirst = index == 0
+        let isLast = index == totalCount - 1
 
         return ZStack {
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(index <= currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive)
+                    .fill(isFirst ? Color.clear : (index <= currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive))
 
                 Rectangle()
-                    .fill(index < currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive)
+                    .fill(isLast ? Color.clear : (index < currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive))
             }
             .frame(width: 5)
             .frame(maxHeight: .infinity)
@@ -234,8 +236,8 @@ struct TrainRouteView: View {
             } else {
                 Rectangle()
                     .fill(isPassed ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive)
-                    .frame(width: 18, height: 5)
-                    .offset(x: 8)
+                    .frame(width: isFirst || isLast ? 22 : 18, height: 5)
+                    .offset(x: isFirst || isLast ? 0 : 8)
             }
         }
     }
