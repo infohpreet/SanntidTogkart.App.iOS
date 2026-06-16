@@ -125,6 +125,7 @@ struct TrainListView: View {
     @ViewBuilder
     private func stationMessagesBoardPage(for tab: TrainListTab) -> some View {
         let tabMessages = messages(for: tab)
+        let remainingMessages = Array(tabMessages.dropFirst())
 
         if tabMessages.isEmpty {
             emptyBoard(for: tab)
@@ -132,16 +133,18 @@ struct TrainListView: View {
             LazyVStack(spacing: 0) {
                 boardHero(for: tabMessages[0], tab: tab)
 
-                boardHeader(for: tab)
+                if !remainingMessages.isEmpty {
+                    boardHeader(for: tab)
 
-                ForEach(Array(tabMessages.enumerated()), id: \.element.id) { index, stationMessage in
-                    boardRow(stationMessage, tab: tab)
+                    ForEach(Array(remainingMessages.enumerated()), id: \.element.id) { index, stationMessage in
+                        boardRow(stationMessage, tab: tab)
 
-                    if index < tabMessages.count - 1 {
-                        Rectangle()
-                            .fill(TrainListBoardStyle.divider)
-                            .frame(height: 1)
-                            .padding(.horizontal, 18)
+                        if index < remainingMessages.count - 1 {
+                            Rectangle()
+                                .fill(TrainListBoardStyle.divider)
+                                .frame(height: 1)
+                                .padding(.horizontal, 18)
+                        }
                     }
                 }
             }
