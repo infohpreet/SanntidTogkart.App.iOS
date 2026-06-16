@@ -131,13 +131,17 @@ struct TrainListView: View {
             emptyBoard(for: tab)
         } else {
             LazyVStack(spacing: 0) {
-                boardHero(for: tabMessages[0], tab: tab)
+                trainRouteLink(for: tabMessages[0], tab: tab) {
+                    boardHero(for: tabMessages[0], tab: tab)
+                }
 
                 if !remainingMessages.isEmpty {
                     boardHeader(for: tab)
 
                     ForEach(Array(remainingMessages.enumerated()), id: \.element.id) { index, stationMessage in
-                        boardRow(stationMessage, tab: tab)
+                        trainRouteLink(for: stationMessage, tab: tab) {
+                            boardRow(stationMessage, tab: tab)
+                        }
 
                         if index < remainingMessages.count - 1 {
                             Rectangle()
@@ -154,6 +158,33 @@ struct TrainListView: View {
                     .stroke(AppTheme.border, lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+
+    private func trainRouteLink<Label: View>(
+        for stationMessage: StationMessage,
+        tab: TrainListTab,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        NavigationLink {
+            TrainRouteView(
+                station: station,
+                stationMessage: stationMessage,
+                trainMessage: viewModel.trainDetail(for: stationMessage),
+                direction: trainRouteDirection(for: tab)
+            )
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func trainRouteDirection(for tab: TrainListTab) -> TrainRouteDirection {
+        switch tab {
+        case .departures:
+            return .departure
+        case .arrivals:
+            return .arrival
         }
     }
 
@@ -557,7 +588,7 @@ private final class TrainListViewModel {
         }
     }
 
-    private func trainDetail(for stationMessage: StationMessage) -> TrainMessage? {
+    func trainDetail(for stationMessage: StationMessage) -> TrainMessage? {
         trainMessagesByKey[trainMessageKey(
             countryCode: stationMessage.countryCode,
             trainNo: stationMessage.trainNo,
