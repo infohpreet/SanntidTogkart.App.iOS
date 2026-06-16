@@ -175,6 +175,8 @@ struct TrainListView: View {
             )
         } label: {
             label()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

@@ -411,9 +411,9 @@ private final class TrainRouteViewModel {
         let date: Date?
         switch direction {
         case .departure:
-            date = stationMessage.std
+            date = stationMessage.std ?? stationMessage.sta
         case .arrival:
-            date = stationMessage.sta
+            date = stationMessage.sta ?? stationMessage.std
         }
 
         return date.map { AppTime.localTimeString(from: $0) } ?? "--:--"
@@ -423,9 +423,9 @@ private final class TrainRouteViewModel {
         let date: Date?
         switch direction {
         case .departure:
-            date = stationMessage.etd
+            date = stationMessage.etd ?? stationMessage.eta
         case .arrival:
-            date = stationMessage.eta
+            date = stationMessage.eta ?? stationMessage.etd
         }
 
         return date.map { AppTime.localTimeString(from: $0) }
