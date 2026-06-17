@@ -123,7 +123,7 @@ struct TrainRouteView: View {
                 }
             }
 
-            if let viaText = viewModel.viaText(direction: direction) {
+            if let viaText = viewModel.viaText() {
                 Text(viaText)
                     .font(.subheadline)
                     .foregroundStyle(TrainRouteStyle.secondaryText)
@@ -196,7 +196,7 @@ struct TrainRouteView: View {
                     .foregroundStyle(TrainRouteStyle.delayYellow)
 
                 Text(scheduledText)
-                    .font(.subheadline.monospacedDigit())
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(TrainRouteStyle.secondaryText)
                     .strikethrough(true, color: TrainRouteStyle.secondaryText)
             }
@@ -445,19 +445,8 @@ private final class TrainRouteViewModel {
         }
     }
 
-    func viaText(direction: TrainRouteDirection) -> String? {
-        let currentIndex = currentRouteIndex
-        let candidates: ArraySlice<StationMessage>
-
-        switch direction {
-        case .departure:
-            candidates = stationMessages.dropFirst(currentIndex + 1).dropLast()
-        case .arrival:
-            candidates = stationMessages.prefix(currentIndex).dropFirst()
-        }
-
-        let stationNames = candidates
-            .prefix(3)
+    func viaText() -> String? {
+        let stationNames = selectedViaStationMessages()
             .map { stationName(for: $0) }
 
         guard !stationNames.isEmpty else {
@@ -465,6 +454,56 @@ private final class TrainRouteViewModel {
         }
 
         return "via " + stationNames.joined(separator: " · ")
+    }
+
+    private func selectedViaStationMessages() -> [StationMessage] {
+        let stopMessages = stationMessages
+            .dropFirst()
+            .dropLast()
+            .filter { stationMessage in
+                stationMessage.activity.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .localizedCaseInsensitiveCompare("S") == .orderedSame
+            }
+
+        guard !stopMessages.isEmpty else {
+            return []
+        }
+
+        let selectedCount: Int
+        switch stopMessages.count {
+        case 1...5:
+            selectedCount = 1
+        case 6...10:
+            selectedCount = 2
+        default:
+            selectedCount = 3
+        }
+
+        guard selectedCount < stopMessages.count else {
+            return Array(stopMessages)
+        }
+
+        var selectedIndexes: [Int] = []
+        for position in 1...selectedCount {
+            let proportionalIndex = Int((Double(stopMessages.count - 1) * Double(position) / Double(selectedCount + 1)).rounded())
+            let clampedIndex = min(max(proportionalIndex, 0), stopMessages.count - 1)
+
+            if !selectedIndexes.contains(clampedIndex) {
+                selectedIndexes.append(clampedIndex)
+            }
+        }
+
+        var fallbackIndex = 0
+        while selectedIndexes.count < selectedCount && fallbackIndex < stopMessages.count {
+            if !selectedIndexes.contains(fallbackIndex) {
+                selectedIndexes.append(fallbackIndex)
+            }
+            fallbackIndex += 1
+        }
+
+        return selectedIndexes
+            .sorted()
+            .map { stopMessages[stopMessages.index(stopMessages.startIndex, offsetBy: $0)] }
     }
 
     private func routeReferenceDate(for stationMessage: StationMessage) -> Date? {
