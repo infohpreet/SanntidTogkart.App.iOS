@@ -2,8 +2,8 @@ import Observation
 import SwiftUI
 
 struct TrainRouteView: View {
-    let station: TraseStation
-    let stationMessage: StationMessage
+    let station: TraseStation?
+    let stationMessage: StationMessage?
     let trainMessage: TrainMessage?
     let direction: TrainRouteDirection
 
@@ -19,6 +19,14 @@ struct TrainRouteView: View {
         self.stationMessage = stationMessage
         self.trainMessage = trainMessage
         self.direction = direction
+        _viewModel = State(initialValue: TrainRouteViewModel(initialTrainMessage: trainMessage))
+    }
+
+    init(trainMessage: TrainMessage) {
+        self.station = nil
+        self.stationMessage = nil
+        self.trainMessage = trainMessage
+        self.direction = .departure
         _viewModel = State(initialValue: TrainRouteViewModel(initialTrainMessage: trainMessage))
     }
 
@@ -48,14 +56,43 @@ struct TrainRouteView: View {
                 }
                 .scrollIndicators(.hidden)
                 .refreshable {
-                    await viewModel.refresh(for: stationMessage)
+                    await refreshRoute()
                 }
             }
         }
         .background(AppTheme.background.ignoresSafeArea())
-        .navigationTitle("Til \(viewModel.routeDestinationText(fallbackStation: station))")
+        .navigationTitle("Til \(viewModel.routeDestinationText(fallbackTitle: routeTitleFallback))")
         .task {
+            await startRoute()
+        }
+    }
+
+    private var routeTitleFallback: String {
+        if let station {
+            return station.name
+        }
+
+        if let trainMessage,
+           let destinationText = viewModel.destinationText(for: trainMessage) {
+            return destinationText
+        }
+
+        return "Togrute"
+    }
+
+    private func startRoute() async {
+        if let stationMessage {
             await viewModel.start(for: stationMessage)
+        } else if let trainMessage {
+            await viewModel.start(for: trainMessage)
+        }
+    }
+
+    private func refreshRoute() async {
+        if let stationMessage {
+            await viewModel.refresh(for: stationMessage)
+        } else if let trainMessage {
+            await viewModel.refresh(for: trainMessage)
         }
     }
 
@@ -77,10 +114,10 @@ struct TrainRouteView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
+    @ViewBuilder
     private var routeHero: some View {
-        let heroStationMessage = viewModel.nextRouteStationMessage ?? stationMessage
-
-        return VStack(alignment: .leading, spacing: 18) {
+        if let heroStationMessage = viewModel.nextRouteStationMessage ?? stationMessage ?? viewModel.stationMessages.first {
+            VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 12) {
                 trainBadge
 
@@ -134,6 +171,7 @@ struct TrainRouteView: View {
         .padding(.horizontal, 18)
         .padding(.top, 24)
         .padding(.bottom, 18)
+        }
     }
 
     private var boardHeader: some View {
@@ -364,22 +402,46 @@ private final class TrainRouteViewModel {
         await loadRoute(for: stationMessage)
     }
 
-    func lineText(for stationMessage: StationMessage) -> String {
+    func start(for trainMessage: TrainMessage) async {
+        guard !hasStarted else {
+            return
+        }
+
+        hasStarted = true
+        await loadRoute(for: trainMessage)
+    }
+
+    func refresh(for trainMessage: TrainMessage) async {
+        await loadRoute(for: trainMessage)
+    }
+
+    func lineText(for stationMessage: StationMessage?) -> String {
         let matchingTrainMessage = trainMessage.flatMap { trainMessage in
-            matches(trainMessage, stationMessage: stationMessage) ? trainMessage : nil
+            if let stationMessage {
+                return matches(trainMessage, stationMessage: stationMessage) ? trainMessage : nil
+            }
+
+            return trainMessage
         }
 
         return normalizedText(matchingTrainMessage?.lineNumber)
-            ?? normalizedText(stationMessage.trainNo)
+            ?? normalizedText(stationMessage?.trainNo)
+            ?? normalizedText(matchingTrainMessage?.trainNo)
+            ?? normalizedText(matchingTrainMessage?.advertisementTrainNo)
             ?? "-"
     }
 
-    func routeDestinationText(fallbackStation: TraseStation) -> String {
+    func routeDestinationText(fallbackTitle: String) -> String {
         guard let destinationMessage = stationMessages.last else {
-            return fallbackStation.name
+            return fallbackTitle
         }
 
         return stationName(for: destinationMessage)
+    }
+
+    func destinationText(for trainMessage: TrainMessage) -> String? {
+        normalizedText(trainMessage.destination)
+            .map { displayStationName(for: $0, countryCode: trainMessage.countryCode) }
     }
 
     var nextRouteStationMessage: StationMessage? {
@@ -524,10 +586,45 @@ private final class TrainRouteViewModel {
             return
         }
 
-        let identity = TrainRouteTrainIdentity(
+        await loadRoute(
             countryCode: stationMessage.countryCode,
+            trainNumber: trainNumber,
+            originDate: stationMessage.originDate,
+            shouldFetchTrainMessage: true
+        )
+    }
+
+    private func loadRoute(for trainMessage: TrainMessage) async {
+        let trainNumber = trainMessage.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let advertisementTrainNumber = trainMessage.advertisementTrainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestedTrainNumber = trainNumber.isEmpty ? advertisementTrainNumber : trainNumber
+
+        guard !requestedTrainNumber.isEmpty else {
+            stationMessages = []
+            errorMessage = "Mangler tognummer."
+            isLoading = false
+            return
+        }
+
+        self.trainMessage = trainMessage
+        await loadRoute(
+            countryCode: trainMessage.countryCode,
+            trainNumber: requestedTrainNumber,
+            originDate: trainMessage.originDate,
+            shouldFetchTrainMessage: false
+        )
+    }
+
+    private func loadRoute(
+        countryCode: String,
+        trainNumber: String,
+        originDate: String,
+        shouldFetchTrainMessage: Bool
+    ) async {
+        let identity = TrainRouteTrainIdentity(
+            countryCode: countryCode,
             trainNo: trainNumber,
-            originDate: stationMessage.originDate
+            originDate: originDate
         )
         requestedTrainIdentity = identity
         if let trainMessage, !matches(trainMessage, identity: identity) {
@@ -540,18 +637,18 @@ private final class TrainRouteViewModel {
         await service.start()
         await service.requestStations()
 
-        if self.trainMessage == nil {
+        if shouldFetchTrainMessage && self.trainMessage == nil {
             await service.requestTrainMessage(
-                countryCode: stationMessage.countryCode,
+                countryCode: countryCode,
                 trainNo: trainNumber,
-                originDate: stationMessage.originDate
+                originDate: originDate
             )
         }
 
         await service.requestTrainStations(
-            countryCode: stationMessage.countryCode,
+            countryCode: countryCode,
             trainNumber: trainNumber,
-            originDate: stationMessage.originDate
+            originDate: originDate
         )
     }
 
@@ -591,8 +688,13 @@ private final class TrainRouteViewModel {
     }
 
     private func matches(_ trainMessage: TrainMessage, identity: TrainRouteTrainIdentity) -> Bool {
-        trainMessage.countryCode.localizedCaseInsensitiveCompare(identity.countryCode) == .orderedSame
-            && trainMessage.trainNo.localizedCaseInsensitiveCompare(identity.trainNo) == .orderedSame
+        let trainNumbers = [
+            normalizedText(trainMessage.trainNo),
+            normalizedText(trainMessage.advertisementTrainNo)
+        ].compactMap { $0 }
+
+        return trainMessage.countryCode.localizedCaseInsensitiveCompare(identity.countryCode) == .orderedSame
+            && trainNumbers.contains { $0.localizedCaseInsensitiveCompare(identity.trainNo) == .orderedSame }
             && trainMessage.originDate == identity.originDate
     }
 

@@ -49,7 +49,7 @@ final class AppNavigationCenter {
     private init() {
         let storedRawValue = UserDefaults.standard.string(forKey: Self.startupDashboardTabKey)
         let storedTab = storedRawValue.flatMap(DashboardTab.init(rawValue:))
-        selectedDashboardTab = DashboardTab.startupTabs.contains(storedTab ?? .map) ? (storedTab ?? .map) : .map
+        selectedDashboardTab = DashboardTab.startupTabs.contains(storedTab ?? .trains) ? (storedTab ?? .trains) : .trains
     }
 
     func showStationOnMap(_ station: TraseStation) {

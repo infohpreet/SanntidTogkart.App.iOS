@@ -369,7 +369,7 @@ struct TrainMapTabView: View {
             .ignoresSafeArea(edges: .bottom)
             .navigationDestination(isPresented: $isTrainStationsViewPresented) {
                 if let trainForStationsView {
-                    TrainStationsView(trainMessage: trainForStationsView, title: "Togrute")
+                    TrainRouteView(trainMessage: trainForStationsView)
                 }
             }
             .alert("Lokasjonstilgang kreves", isPresented: $isLocationPermissionAlertPresented) {

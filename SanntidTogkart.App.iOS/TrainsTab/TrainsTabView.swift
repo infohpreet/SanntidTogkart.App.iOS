@@ -30,7 +30,7 @@ struct TrainsTabView: View {
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("Tog")
+            .navigationTitle(tabGreetingTitle)
             .searchable(text: $searchText, prompt: "Søk etter stasjon")
             .navigationDestination(isPresented: $isTrainListPresented) {
                 if let selectedStation {
@@ -50,19 +50,22 @@ struct TrainsTabView: View {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var tabGreetingTitle: String {
+        let hour = Calendar.autoupdatingCurrent.component(.hour, from: AppTime.now)
+
+        switch hour {
+        case 5..<12:
+            return "God morgen!"
+        case 12..<18:
+            return "God ettermiddag!"
+        default:
+            return "God kveld!"
+        }
+    }
+
     private var stationSections: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if !viewModel.nearestStations.isEmpty {
-                    stationSection(
-                        title: "Nærmeste",
-                        systemImage: "location.fill",
-                        stations: viewModel.nearestStations,
-                        tint: Color.accentColor,
-                        bullet: .nearest
-                    )
-                }
-
                 if !favoritesStore.stations.isEmpty {
                     stationSection(
                         title: "Favoritter",
@@ -70,6 +73,16 @@ struct TrainsTabView: View {
                         stations: favoritesStore.stations,
                         tint: .yellow,
                         bullet: .favorite
+                    )
+                }
+
+                if !viewModel.nearestStations.isEmpty {
+                    stationSection(
+                        title: "Nærmeste",
+                        systemImage: "location.fill",
+                        stations: viewModel.nearestStations,
+                        tint: Color.accentColor,
+                        bullet: .nearest
                     )
                 }
 
@@ -571,4 +584,3 @@ extension TraseStation {
         return "\(countryCode)::\(shortName)"
     }
 }
-
