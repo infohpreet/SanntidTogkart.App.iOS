@@ -141,13 +141,14 @@ struct TrainRouteView: View {
                 Spacer(minLength: 12)
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(viewModel.primaryTimeText(for: heroStationMessage, direction: direction))
+                    Text(viewModel.scheduledTimeText(for: heroStationMessage, direction: direction))
                         .font(.title3.monospacedDigit().weight(.bold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
-                    if let expectedTimeText = viewModel.expectedTimeText(for: heroStationMessage, direction: direction) {
+                    if let expectedTimeText = viewModel.expectedTimeText(for: heroStationMessage, direction: direction),
+                       expectedTimeText != viewModel.scheduledTimeText(for: heroStationMessage, direction: direction) {
                         Text(expectedTimeText)
                             .font(.subheadline.monospacedDigit().weight(.semibold))
                             .foregroundStyle(TrainRouteStyle.delayYellow)
@@ -214,7 +215,7 @@ struct TrainRouteView: View {
 
             Text(viewModel.trackText(for: message) ?? "")
                 .font(.subheadline.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(viewModel.isStopActivity(message) ? .primary : TrainRouteStyle.secondaryText)
                 .frame(width: 30, alignment: .trailing)
                 .lineLimit(1)
         }
@@ -465,8 +466,9 @@ private final class TrainRouteViewModel {
         normalizedText(stationMessage.scheduledTrack)
     }
 
-    func primaryTimeText(for stationMessage: StationMessage, direction: TrainRouteDirection) -> String {
-        expectedTimeText(for: stationMessage, direction: direction) ?? scheduledTimeText(for: stationMessage, direction: direction)
+    func isStopActivity(_ stationMessage: StationMessage) -> Bool {
+        stationMessage.activity.trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedCaseInsensitiveCompare("S") == .orderedSame
     }
 
     func scheduledTimeText(for stationMessage: StationMessage, direction: TrainRouteDirection) -> String {
@@ -519,12 +521,19 @@ private final class TrainRouteViewModel {
     }
 
     private func selectedViaStationMessages() -> [StationMessage] {
-        let stopMessages = stationMessages
-            .dropFirst()
-            .dropLast()
+        guard stationMessages.count > 1 else {
+            return []
+        }
+
+        let remainingStartIndex = latestPastRouteIndex.map { min($0 + 1, stationMessages.count) } ?? 0
+        guard remainingStartIndex < stationMessages.count - 1 else {
+            return []
+        }
+
+        let remainingMessages = stationMessages[remainingStartIndex..<stationMessages.count].dropLast()
+        let stopMessages = remainingMessages
             .filter { stationMessage in
-                stationMessage.activity.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .localizedCaseInsensitiveCompare("S") == .orderedSame
+                isStopActivity(stationMessage)
             }
 
         guard !stopMessages.isEmpty else {
