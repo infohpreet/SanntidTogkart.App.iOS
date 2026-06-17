@@ -7,6 +7,7 @@ struct SettingsTabView: View {
     @Bindable var authSession: AuthSession
     let onLogout: () -> Void
     @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
+    @AppStorage(AppNavigationCenter.startupDashboardTabKey) private var startupDashboardTabRawValue = DashboardTab.map.rawValue
     @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
     @State private var pendingEnvironment: AppEnvironment?
@@ -21,6 +22,7 @@ struct SettingsTabView: View {
                     profileCard
                     accountCard
                     appearanceCard
+                    startupTabCard
                     environmentCard
                     securityCard
                     locationCard
@@ -249,6 +251,27 @@ struct SettingsTabView: View {
             Picker("Utseende", selection: $appAppearanceModeRawValue) {
                 ForEach(AppAppearanceMode.allCases) { mode in
                     Text(mode.title).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var startupTabCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Startfane", systemImage: "rectangle.stack")
+                .font(.headline)
+
+            Text("Velg hvilken fane som skal vises når appen starter.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Picker("Startfane", selection: $startupDashboardTabRawValue) {
+                ForEach(DashboardTab.startupTabs) { tab in
+                    Text(tab.title).tag(tab.rawValue)
                 }
             }
             .pickerStyle(.segmented)

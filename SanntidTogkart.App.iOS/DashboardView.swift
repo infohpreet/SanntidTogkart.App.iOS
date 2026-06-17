@@ -21,16 +21,16 @@ struct DashboardView: View {
                 .environment(\.symbolVariants, .none)
             }
 
-            TrainsTabView()
-            .tag(DashboardTab.trains)
-            .tabItem {
-                tabItemLabel("NÅ", systemImage: "clock")
-            }
-
             RoutesTabView()
             .tag(DashboardTab.routes)
             .tabItem {
                 tabItemLabel("Ruter", systemImage: "arrow.triangle.swap")
+            }
+
+            TrainsTabView()
+            .tag(DashboardTab.trains)
+            .tabItem {
+                tabItemLabel("NÅ", systemImage: "clock")
             }
 
             StationsTabView()

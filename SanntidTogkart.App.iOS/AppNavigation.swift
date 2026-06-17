@@ -1,12 +1,33 @@
 import Foundation
 import Observation
 
-enum DashboardTab: Hashable {
+enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
     case map
     case trains
     case routes
     case stations
     case settings
+
+    var id: Self {
+        self
+    }
+
+    static let startupTabs: [DashboardTab] = [.map, .routes, .trains, .stations]
+
+    var title: String {
+        switch self {
+        case .map:
+            return "Kart"
+        case .trains:
+            return "NÅ"
+        case .routes:
+            return "Ruter"
+        case .stations:
+            return "Stasjoner"
+        case .settings:
+            return "Innstillinger"
+        }
+    }
 }
 
 struct StationMapSelectionRequest: Equatable {
@@ -19,12 +40,17 @@ struct StationMapSelectionRequest: Equatable {
 @MainActor
 @Observable
 final class AppNavigationCenter {
+    static let startupDashboardTabKey = "startupDashboardTab"
     static let shared = AppNavigationCenter()
 
-    var selectedDashboardTab: DashboardTab = .map
+    var selectedDashboardTab: DashboardTab
     var stationMapSelectionRequest: StationMapSelectionRequest?
 
-    private init() {}
+    private init() {
+        let storedRawValue = UserDefaults.standard.string(forKey: Self.startupDashboardTabKey)
+        let storedTab = storedRawValue.flatMap(DashboardTab.init(rawValue:))
+        selectedDashboardTab = DashboardTab.startupTabs.contains(storedTab ?? .map) ? (storedTab ?? .map) : .map
+    }
 
     func showStationOnMap(_ station: TraseStation) {
         selectedDashboardTab = .map
