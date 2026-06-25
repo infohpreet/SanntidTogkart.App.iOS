@@ -220,7 +220,7 @@ struct TrainListView: View {
                 if let trackText = viewModel.trackText(for: stationMessage) {
                     Text("Spor \(trackText)")
                         .font(.headline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(viewModel.isPrimaryTrackActivity(for: stationMessage) ? .primary : .secondary)
                         .lineLimit(1)
                 }
             }
@@ -302,7 +302,7 @@ struct TrainListView: View {
 
             Text(viewModel.trackText(for: stationMessage) ?? "")
                 .font(.subheadline.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(viewModel.isPrimaryTrackActivity(for: stationMessage) ? .primary : .secondary)
                 .frame(width: 30, alignment: .trailing)
                 .lineLimit(1)
         }
@@ -549,6 +549,10 @@ private final class TrainListViewModel {
 
     func trackText(for stationMessage: StationMessage) -> String? {
         normalizedText(stationMessage.scheduledTrack)
+    }
+
+    func isPrimaryTrackActivity(for stationMessage: StationMessage) -> Bool {
+        normalizedText(stationMessage.activity)?.uppercased() == "S"
     }
 
     func primaryTimeText(for stationMessage: StationMessage, tab: TrainListTab) -> String {
