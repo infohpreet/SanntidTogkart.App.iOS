@@ -41,6 +41,9 @@ struct TrainsTabView: View {
         .task {
             await viewModel.start()
         }
+        .onChange(of: favoritesStore.stations.map(\.storageKey)) { _, _ in
+            viewModel.refreshNearestStations()
+        }
         .onChange(of: searchText) { _, newValue in
             viewModel.updateSearchText(newValue)
         }
@@ -48,6 +51,14 @@ struct TrainsTabView: View {
 
     private var shouldShowDropdown: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var favoriteStationKeys: Set<String> {
+        Set(favoritesStore.stations.map(\.storageKey))
+    }
+
+    private var recentStationsExcludingFavorites: [TraseStation] {
+        lastUsedStore.stations.filter { !favoriteStationKeys.contains($0.storageKey) }
     }
 
     private var tabGreetingTitle: String {
@@ -86,11 +97,11 @@ struct TrainsTabView: View {
                     )
                 }
 
-                if !lastUsedStore.stations.isEmpty {
+                if !recentStationsExcludingFavorites.isEmpty {
                     recentStationsSection
                 }
 
-                if viewModel.nearestStations.isEmpty && favoritesStore.stations.isEmpty && lastUsedStore.stations.isEmpty {
+                if viewModel.nearestStations.isEmpty && favoritesStore.stations.isEmpty && recentStationsExcludingFavorites.isEmpty {
                     ContentUnavailableView(
                         "Velg en stasjon",
                         systemImage: "tram.fill.tunnel",
@@ -119,7 +130,7 @@ struct TrainsTabView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader(title: "Sist brukte", systemImage: "clock.arrow.circlepath", tint: .orange)
 
-            stationList(lastUsedStore.stations, bullet: .recent)
+            stationList(recentStationsExcludingFavorites, bullet: .recent)
 
             Button {
                 lastUsedStore.clear()
@@ -456,6 +467,10 @@ private final class TrainsTabViewModel {
         applySearch()
     }
 
+    func refreshNearestStations() {
+        updateNearestStations()
+    }
+
     func distanceText(for station: TraseStation) -> String? {
         guard
             let currentLocation,
@@ -499,9 +514,15 @@ private final class TrainsTabViewModel {
             return
         }
 
+        let favoriteStationKeys = Set(TrainStationFavoritesStore.shared.stations.map(\.storageKey))
+
         nearestStations = stations
             .compactMap { station -> (station: TraseStation, distance: CLLocationDistance)? in
                 guard let latitude = station.latitude, let longitude = station.longitude else {
+                    return nil
+                }
+
+                guard !favoriteStationKeys.contains(station.storageKey) else {
                     return nil
                 }
 

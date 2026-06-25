@@ -799,6 +799,10 @@ final class SignalRService {
                 return date
             }
 
+            if let date = localISO8601SecondsFormatter.date(from: value) {
+                return date
+            }
+
             if let date = fractionalISO8601Formatter.date(from: value) {
                 return date
             }
@@ -1077,6 +1081,14 @@ private let extendedFractionalDateFormatter: DateFormatter = {
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
     formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS"
+    return formatter
+}()
+
+private let localISO8601SecondsFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
     return formatter
 }()
 

@@ -611,6 +611,12 @@ private struct TrainStationsSwedenFlagBadge: View {
     }
 }
 
+private struct TrainStationsTrainIdentity {
+    let countryCode: String
+    let trainNo: String
+    let originDate: String
+}
+
 @MainActor
 @Observable
 private final class TrainStationsViewModel {
@@ -621,6 +627,7 @@ private final class TrainStationsViewModel {
     private let service: SignalRService
     private var hasStarted = false
     private var stations: [TraseStation] = []
+    private var requestedTrainIdentity: TrainStationsTrainIdentity?
 
     init() {
         self.service = SignalRService()
@@ -641,7 +648,11 @@ private final class TrainStationsViewModel {
                 return
             }
 
-            self.stationMessages = stationMessages
+            guard self.matchesRequestedRoute(stationMessages) else {
+                return
+            }
+
+            self.stationMessages = self.orderedStationMessages(stationMessages)
             self.errorMessage = nil
             self.isLoading = false
         }
@@ -709,15 +720,68 @@ private final class TrainStationsViewModel {
             return
         }
 
+        requestedTrainIdentity = TrainStationsTrainIdentity(
+            countryCode: trainMessage.countryCode,
+            trainNo: requestedTrainNumber,
+            originDate: trainMessage.originDate
+        )
+
         isLoading = true
         errorMessage = nil
         await service.start()
         await service.requestStations()
         await service.requestTrainStations(
-            countryCode: trainMessage.countryCode,
+            countryCode: "",
             trainNumber: requestedTrainNumber,
             originDate: trainMessage.originDate
         )
+    }
+
+    private func matchesRequestedRoute(_ stationMessages: [StationMessage]) -> Bool {
+        guard let requestedTrainIdentity else {
+            return false
+        }
+
+        guard !stationMessages.isEmpty else {
+            return true
+        }
+
+        return stationMessages.contains { stationMessage in
+            stationMessage.countryCode.localizedCaseInsensitiveCompare(requestedTrainIdentity.countryCode) == .orderedSame
+                && stationMessage.trainNo.localizedCaseInsensitiveCompare(requestedTrainIdentity.trainNo) == .orderedSame
+                && stationMessage.originDate == requestedTrainIdentity.originDate
+        }
+    }
+
+    private func orderedStationMessages(_ stationMessages: [StationMessage]) -> [StationMessage] {
+        stationMessages
+            .enumerated()
+            .sorted { lhs, rhs in
+                let lhsDate = routeSortDate(for: lhs.element)
+                let rhsDate = routeSortDate(for: rhs.element)
+
+                switch (lhsDate, rhsDate) {
+                case let (lhsDate?, rhsDate?) where lhsDate != rhsDate:
+                    return lhsDate < rhsDate
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                default:
+                    return lhs.offset < rhs.offset
+                }
+            }
+            .map(\ .element)
+    }
+
+    private func routeSortDate(for stationMessage: StationMessage) -> Date? {
+        stationMessage.sta
+            ?? stationMessage.std
+            ?? stationMessage.eta
+            ?? stationMessage.etd
+            ?? stationMessage.ata
+            ?? stationMessage.atd
+            ?? stationMessage.originTime
     }
 }
 

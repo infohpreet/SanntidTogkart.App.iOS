@@ -234,11 +234,25 @@ struct TrainListView: View {
 
                 Spacer(minLength: 12)
 
-                Text(viewModel.primaryTimeText(for: stationMessage, tab: tab))
-                    .font(.title3.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(viewModel.scheduledTimeText(for: stationMessage, tab: tab))
+                        .font(.title3.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    if let expectedTimeText = viewModel.expectedTimeDisplayText(for: stationMessage, tab: tab),
+                       expectedTimeText != viewModel.scheduledTimeText(for: stationMessage, tab: tab) {
+                        Text(expectedTimeText)
+                            .font(.subheadline.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(TrainListBoardStyle.delayYellow)
+                            .lineLimit(1)
+
+                        Text("Forventet")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(TrainListBoardStyle.delayYellow)
+                    }
+                }
             }
         }
         .padding(.horizontal, 18)
@@ -271,9 +285,7 @@ struct TrainListView: View {
 
     private func boardRow(_ stationMessage: StationMessage, tab: TrainListTab) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            Text(viewModel.scheduledTimeText(for: stationMessage, tab: tab))
-                .font(.subheadline.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.primary)
+            timeColumn(for: stationMessage, tab: tab)
                 .frame(width: 56, alignment: .leading)
 
             HStack(spacing: 8) {
@@ -296,6 +308,29 @@ struct TrainListView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
+    }
+
+    @ViewBuilder
+    private func timeColumn(for stationMessage: StationMessage, tab: TrainListTab) -> some View {
+        let scheduledText = viewModel.scheduledTimeText(for: stationMessage, tab: tab)
+        let expectedText = viewModel.expectedTimeDisplayText(for: stationMessage, tab: tab)
+
+        if let expectedText, expectedText != scheduledText {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(expectedText)
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(TrainListBoardStyle.delayYellow)
+
+                Text(scheduledText)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(TrainListBoardStyle.secondaryText)
+                    .strikethrough(true, color: TrainListBoardStyle.secondaryText)
+            }
+        } else {
+            Text(scheduledText)
+                .font(.subheadline.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.primary)
+        }
     }
 
     private func trainBadge(for stationMessage: StationMessage, size: TrainBadgeSize) -> some View {
@@ -400,6 +435,7 @@ private enum TrainListBoardStyle {
     static let divider = AppTheme.border
     static let mutedText = Color.secondary
     static let secondaryText = Color.secondary
+    static let delayYellow = Color(red: 0.86, green: 0.62, blue: 0.0)
     static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
 }
 
@@ -517,6 +553,11 @@ private final class TrainListViewModel {
 
     func primaryTimeText(for stationMessage: StationMessage, tab: TrainListTab) -> String {
         expectedTimeText(for: stationMessage, tab: tab, fallbackToScheduled: true)
+    }
+
+    func expectedTimeDisplayText(for stationMessage: StationMessage, tab: TrainListTab) -> String? {
+        let expectedText = expectedTimeText(for: stationMessage, tab: tab)
+        return expectedText.isEmpty ? nil : expectedText
     }
 
     func scheduledTimeText(for stationMessage: StationMessage, tab: TrainListTab) -> String {

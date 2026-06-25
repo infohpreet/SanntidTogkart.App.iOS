@@ -366,7 +366,7 @@ private final class TrainRouteViewModel {
                 return
             }
 
-            self.stationMessages = stationMessages
+            self.stationMessages = self.orderedStationMessages(stationMessages)
             self.errorMessage = nil
             self.isLoading = false
         }
@@ -586,6 +586,37 @@ private final class TrainRouteViewModel {
             ?? stationMessage.std
     }
 
+    private func orderedStationMessages(_ stationMessages: [StationMessage]) -> [StationMessage] {
+        stationMessages
+            .enumerated()
+            .sorted { lhs, rhs in
+                let lhsDate = routeSortDate(for: lhs.element)
+                let rhsDate = routeSortDate(for: rhs.element)
+
+                switch (lhsDate, rhsDate) {
+                case let (lhsDate?, rhsDate?) where lhsDate != rhsDate:
+                    return lhsDate < rhsDate
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                default:
+                    return lhs.offset < rhs.offset
+                }
+            }
+            .map(\ .element)
+    }
+
+    private func routeSortDate(for stationMessage: StationMessage) -> Date? {
+        stationMessage.sta
+            ?? stationMessage.std
+            ?? stationMessage.eta
+            ?? stationMessage.etd
+            ?? stationMessage.ata
+            ?? stationMessage.atd
+            ?? stationMessage.originTime
+    }
+
     private func loadRoute(for stationMessage: StationMessage) async {
         let trainNumber = stationMessage.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trainNumber.isEmpty else {
@@ -655,7 +686,7 @@ private final class TrainRouteViewModel {
         }
 
         await service.requestTrainStations(
-            countryCode: countryCode,
+            countryCode: "",
             trainNumber: trainNumber,
             originDate: originDate
         )
