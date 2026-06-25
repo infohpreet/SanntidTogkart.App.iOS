@@ -340,7 +340,10 @@ struct TrainListView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(width: size.width, height: size.height)
-            .background(TrainListBoardStyle.trainRed, in: RoundedRectangle(cornerRadius: 1))
+            .background(
+                viewModel.isFreightTrain(for: stationMessage) ? TrainListBoardStyle.freightGreen : TrainListBoardStyle.trainRed,
+                in: RoundedRectangle(cornerRadius: 1)
+            )
     }
 }
 
@@ -436,6 +439,7 @@ private enum TrainListBoardStyle {
     static let mutedText = Color.secondary
     static let secondaryText = Color.secondary
     static let delayYellow = Color(red: 0.86, green: 0.62, blue: 0.0)
+    static let freightGreen = Color(red: 0.17, green: 0.52, blue: 0.29)
     static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
 }
 
@@ -553,6 +557,10 @@ private final class TrainListViewModel {
 
     func isPrimaryTrackActivity(for stationMessage: StationMessage) -> Bool {
         normalizedText(stationMessage.activity)?.uppercased() == "S"
+    }
+
+    func isFreightTrain(for stationMessage: StationMessage) -> Bool {
+        CommonService.isFreightTrainType(trainDetail(for: stationMessage)?.trainType)
     }
 
     func primaryTimeText(for stationMessage: StationMessage, tab: TrainListTab) -> String {
@@ -723,4 +731,5 @@ private final class TrainListViewModel {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return normalized.isEmpty ? nil : normalized
     }
+
 }

@@ -288,7 +288,10 @@ struct TrainRouteView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(width: 76, height: 34)
-            .background(TrainRouteStyle.trainRed, in: RoundedRectangle(cornerRadius: 1))
+            .background(
+                viewModel.isFreightTrain ? TrainRouteStyle.freightGreen : TrainRouteStyle.trainRed,
+                in: RoundedRectangle(cornerRadius: 1)
+            )
     }
 }
 
@@ -326,6 +329,7 @@ private enum TrainRouteStyle {
     static let divider = AppTheme.border
     static let mutedText = Color.secondary
     static let secondaryText = Color.secondary
+    static let freightGreen = Color(red: 0.17, green: 0.52, blue: 0.29)
     static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
     static let lineRed = Color(red: 0.93, green: 0.10, blue: 0.14)
     static let timelineInactive = Color.secondary.opacity(0.34)
@@ -430,6 +434,10 @@ private final class TrainRouteViewModel {
             ?? normalizedText(matchingTrainMessage?.trainNo)
             ?? normalizedText(matchingTrainMessage?.advertisementTrainNo)
             ?? "-"
+    }
+
+    var isFreightTrain: Bool {
+        CommonService.isFreightTrainType(trainMessage?.trainType)
     }
 
     func routeDestinationText(fallbackTitle: String) -> String {
@@ -759,4 +767,5 @@ private final class TrainRouteViewModel {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return normalized.isEmpty ? nil : normalized
     }
+
 }

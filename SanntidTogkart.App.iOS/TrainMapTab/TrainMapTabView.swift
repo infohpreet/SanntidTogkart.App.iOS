@@ -1662,14 +1662,10 @@ private struct TrainMapAnnotation: View {
 }
 
 private func trainMarkerColor(for trainType: String?) -> Color {
-    let normalizedTrainType = trainType?
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-        .uppercased()
-
-    switch normalizedTrainType {
-    case "SPFG", "GT":
+    switch CommonService.isFreightTrainType(trainType) {
+    case true:
         return .green
-    default:
+    case false:
         return .accentColor
     }
 }
