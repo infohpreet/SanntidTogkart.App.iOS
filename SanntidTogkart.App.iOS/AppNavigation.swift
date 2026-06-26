@@ -37,6 +37,11 @@ struct StationMapSelectionRequest: Equatable {
     let requestID = UUID()
 }
 
+struct TrainMapSelectionRequest: Equatable {
+    let trainMessageID: Int
+    let requestID = UUID()
+}
+
 @MainActor
 @Observable
 final class AppNavigationCenter {
@@ -45,6 +50,7 @@ final class AppNavigationCenter {
 
     var selectedDashboardTab: DashboardTab
     var stationMapSelectionRequest: StationMapSelectionRequest?
+    var trainMapSelectionRequest: TrainMapSelectionRequest?
 
     private init() {
         let storedRawValue = UserDefaults.standard.string(forKey: Self.startupDashboardTabKey)
@@ -54,6 +60,7 @@ final class AppNavigationCenter {
 
     func showStationOnMap(_ station: TraseStation) {
         selectedDashboardTab = .map
+        trainMapSelectionRequest = nil
         stationMapSelectionRequest = StationMapSelectionRequest(
             stationID: station.id,
             latitude: station.latitude,
@@ -61,8 +68,15 @@ final class AppNavigationCenter {
         )
     }
 
+    func showTrainOnMap(_ trainMessage: TrainMessage) {
+        selectedDashboardTab = .map
+        stationMapSelectionRequest = nil
+        trainMapSelectionRequest = TrainMapSelectionRequest(trainMessageID: trainMessage.id)
+    }
+
     func resetToMap() {
         selectedDashboardTab = .map
         stationMapSelectionRequest = nil
+        trainMapSelectionRequest = nil
     }
 }

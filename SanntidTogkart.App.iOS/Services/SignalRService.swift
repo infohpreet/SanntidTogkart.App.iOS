@@ -113,6 +113,16 @@ final class SignalRService {
         await service.start()
     }
 
+    static func activeMapTrain(matching trainMessage: TrainMessage?) -> TrainMessage? {
+        guard let trainMessage else {
+            return nil
+        }
+
+        return liveTrainMessagesByID.values.first { cachedTrainMessage in
+            cachedTrainMessage.id == trainMessage.id && isActiveMapTrain(cachedTrainMessage)
+        }
+    }
+
     func requestTrainMetrics() async {
         if let cachedMetrics = Self.cachedMetrics {
             onMetrics?(cachedMetrics)
@@ -951,6 +961,25 @@ final class SignalRService {
         }
 
         return cachedMessages
+    }
+
+    private static func isActiveMapTrain(_ trainMessage: TrainMessage) -> Bool {
+        guard
+            let serviceTime = trainMessage.trainPosition?.geoJson.properties.serviceTime,
+            hasMapCoordinate(trainMessage)
+        else {
+            return false
+        }
+
+        return serviceTime >= AppTime.now.addingTimeInterval(-5 * 60)
+    }
+
+    private static func hasMapCoordinate(_ trainMessage: TrainMessage) -> Bool {
+        guard let coordinates = trainMessage.trainPosition?.geoJson.geometry.coordinates, coordinates.count >= 2 else {
+            return false
+        }
+
+        return true
     }
 
     private func liveTrainPositionKey(for trainPosition: TrainPosition) -> String {

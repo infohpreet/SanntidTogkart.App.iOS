@@ -7,6 +7,7 @@ struct TrainRouteView: View {
     let trainMessage: TrainMessage?
     let direction: TrainRouteDirection
 
+    @State private var navigationCenter = AppNavigationCenter.shared
     @State private var viewModel: TrainRouteViewModel
 
     init(
@@ -62,6 +63,18 @@ struct TrainRouteView: View {
         }
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("Til \(viewModel.routeDestinationText(fallbackTitle: routeTitleFallback))")
+        .toolbar {
+            if let activeMapTrain = viewModel.activeMapTrain {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        navigationCenter.showTrainOnMap(activeMapTrain)
+                    } label: {
+                        Image(systemName: "map")
+                    }
+                    .accessibilityLabel("Vis toget på kart")
+                }
+            }
+        }
         .task {
             await startRoute()
         }
@@ -438,6 +451,10 @@ private final class TrainRouteViewModel {
 
     var isFreightTrain: Bool {
         CommonService.isFreightTrainType(trainMessage?.trainType)
+    }
+
+    var activeMapTrain: TrainMessage? {
+        SignalRService.activeMapTrain(matching: trainMessage)
     }
 
     func routeDestinationText(fallbackTitle: String) -> String {

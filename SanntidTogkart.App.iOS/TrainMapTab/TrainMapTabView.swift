@@ -31,6 +31,7 @@ struct TrainMapTabView: View {
     @State private var trainForStationsView: TrainMessage?
     @State private var isTrainStationsViewPresented = false
     @State private var pendingStationSelectionRequest: StationMapSelectionRequest?
+    @State private var pendingTrainSelectionRequest: TrainMapSelectionRequest?
     @State private var shouldNavigateToCurrentLocation = false
     @State private var presentedTrainListEntries: [TrainListEntry] = []
     @State private var visibleRegion = MKCoordinateRegion(
@@ -343,15 +344,30 @@ struct TrainMapTabView: View {
 
                 revealStationOnMap(request)
             }
-            .onChange(of: navigationCenter.selectedDashboardTab) { _, selectedTab in
-                guard
-                    selectedTab == .map,
-                    let pendingStationSelectionRequest
-                else {
+            .onChange(of: navigationCenter.trainMapSelectionRequest) { _, request in
+                guard let request else {
                     return
                 }
 
-                revealStationOnMap(pendingStationSelectionRequest)
+                guard navigationCenter.selectedDashboardTab == .map else {
+                    pendingTrainSelectionRequest = request
+                    return
+                }
+
+                revealTrainOnMap(request)
+            }
+            .onChange(of: navigationCenter.selectedDashboardTab) { _, selectedTab in
+                guard selectedTab == .map else {
+                    return
+                }
+
+                if let pendingStationSelectionRequest {
+                    revealStationOnMap(pendingStationSelectionRequest)
+                }
+
+                if let pendingTrainSelectionRequest {
+                    revealTrainOnMap(pendingTrainSelectionRequest)
+                }
             }
             .onChange(of: viewModel.stations.count) { _, _ in
                 guard let pendingStationSelectionRequest else {
@@ -359,6 +375,13 @@ struct TrainMapTabView: View {
                 }
 
                 revealStationOnMap(pendingStationSelectionRequest)
+            }
+            .onChange(of: viewModel.trainMessages.map(\.id)) { _, _ in
+                guard let pendingTrainSelectionRequest else {
+                    return
+                }
+
+                revealTrainOnMap(pendingTrainSelectionRequest)
             }
             .refreshable {
                 guard !isTrainListPresented, !isStatsPresented, !isStatusPresented, !isMapModePresented else {
@@ -812,6 +835,17 @@ struct TrainMapTabView: View {
             }
             selectedStationID = request.stationID
         }
+    }
+
+    private func revealTrainOnMap(_ request: TrainMapSelectionRequest) {
+        guard let train = viewModel.trainMessages.first(where: { $0.id == request.trainMessageID }) else {
+            pendingTrainSelectionRequest = request
+            return
+        }
+
+        pendingTrainSelectionRequest = nil
+        selectedStationID = nil
+        selectTrain(train)
     }
 
     private func dismissTrainList() {
