@@ -72,7 +72,7 @@ final class AuthSession {
             Self.currentUserSnapshot = persistedUser
             Self.currentAccessToken = persistedUser.accessToken
         } catch {
-            errorMessage = error.localizedDescription
+            presentError(error, context: "Restore session")
         }
     }
 
@@ -97,7 +97,7 @@ final class AuthSession {
             }
             return user
         } catch {
-            errorMessage = error.localizedDescription
+            presentError(error, context: "SSO sign in")
             return nil
         }
     }
@@ -165,7 +165,7 @@ final class AuthSession {
 
                 return true
             } catch {
-                errorMessage = error.localizedDescription
+                presentError(error, context: "Enable Face ID")
                 return false
             }
         } else {
@@ -204,6 +204,16 @@ final class AuthSession {
         }
 
         return accessTokenExpirationDate.timeIntervalSinceNow <= tokenRefreshLeadTime
+    }
+
+    private func presentError(_ error: Error, context: String) {
+        let message = error.localizedDescription
+        errorMessage = message
+        AppLogStore.shared.logError(
+            category: "Auth",
+            message: "\(context) failed",
+            details: message
+        )
     }
 
     private func authenticateWithBiometrics(reason: String) async throws -> Bool {

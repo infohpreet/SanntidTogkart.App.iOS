@@ -127,7 +127,7 @@ final class SignalRService {
         do {
             try await sendGetTrainMetrics(on: webSocketTask)
         } catch {
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestTrainMetrics")
         }
     }
 
@@ -146,7 +146,7 @@ final class SignalRService {
         do {
             try await sendGetStations(filter: filter, on: webSocketTask)
         } catch {
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestStations")
         }
     }
 
@@ -166,7 +166,7 @@ final class SignalRService {
         do {
             try await sendGetTrainMessages(filter: filter, originDate: originDate, on: webSocketTask)
         } catch {
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestTrainMessages")
         }
     }
 
@@ -189,7 +189,7 @@ final class SignalRService {
                 on: webSocketTask
             )
         } catch {
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestTrainPositionsList")
         }
     }
 
@@ -225,7 +225,7 @@ final class SignalRService {
             )
         } catch {
             Self.pendingTrainMessageKeys.remove(key)
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestTrainMessage")
         }
     }
 
@@ -248,7 +248,7 @@ final class SignalRService {
                 on: webSocketTask
             )
         } catch {
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestTrainStations")
         }
     }
 
@@ -271,7 +271,7 @@ final class SignalRService {
                 on: webSocketTask
             )
         } catch {
-            onError?(error.localizedDescription)
+            reportError(error, context: "requestStationMessages")
         }
     }
 
@@ -289,7 +289,7 @@ final class SignalRService {
 
                 connectionCenter.update(state: .failed, details: error.localizedDescription)
                 onStateChange?(.failed)
-                onError?(error.localizedDescription)
+                reportError(error, context: "runConnectionLoop")
 
                 onStateChange?(.reconnecting)
                 connectionCenter.update(state: .reconnecting)
@@ -843,11 +843,35 @@ final class SignalRService {
     }
 
     private func logDecodingFailure(prefix: String, error: Error, data: Data) {
+        let decodingDetails = decodingErrorDescription(error)
+        let rawPayload = String(data: data, encoding: .utf8)
+
         print("\(prefix) decode error:", error)
-        print("\(prefix) decode details:", decodingErrorDescription(error))
-        if let rawPayload = String(data: data, encoding: .utf8) {
+        print("\(prefix) decode details:", decodingDetails)
+        if let rawPayload {
             print("\(prefix) raw payload:", rawPayload)
         }
+
+        AppLogStore.shared.logError(
+            category: "SignalR",
+            message: "\(prefix) decode error",
+            details: [
+                error.localizedDescription,
+                decodingDetails,
+                rawPayload.map { "payload=\($0)" }
+            ]
+            .compactMap { $0 }
+            .joined(separator: "\n")
+        )
+    }
+
+    private func reportError(_ error: Error, context: String) {
+        AppLogStore.shared.logError(
+            category: "SignalR",
+            message: "SignalR \(context) failed",
+            details: error.localizedDescription
+        )
+        onError?(error.localizedDescription)
     }
 
     private func decodingErrorDescription(_ error: Error) -> String {

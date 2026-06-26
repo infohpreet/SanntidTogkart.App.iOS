@@ -14,6 +14,7 @@ struct SettingsTabView: View {
     @State private var isShowingEnvironmentChangeConfirmation = false
     @State private var isSwitchingEnvironment = false
     @State private var locationAccessManager = SettingsLocationAccessManager()
+    @State private var logStore = AppLogStore.shared
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,7 @@ struct SettingsTabView: View {
                     securityCard
                     locationCard
                     onboardingCard
+                    logsCard
                     appInfoCard
                     actionCard
                 }
@@ -119,6 +121,40 @@ struct SettingsTabView: View {
                 .font(.headline)
 
             infoRow(title: "Versjon", value: "\(appVersion) (\(appBuild))")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var logsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Logger", systemImage: "doc.text.magnifyingglass")
+                .font(.headline)
+
+            Text("Vis lagrede feil, dekodingsfeil og andre registrerte appfeil.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            NavigationLink {
+                AppLogView()
+            } label: {
+                HStack(spacing: 12) {
+                    Label("Åpne logger", systemImage: "list.bullet.rectangle")
+                        .font(.subheadline.weight(.medium))
+
+                    Spacer()
+
+                    Text("\(logStore.entryCount)")
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
