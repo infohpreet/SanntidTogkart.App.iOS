@@ -65,6 +65,10 @@ struct TrainsTabView: View {
     private var stationSections: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if !favoritesStore.stations.isEmpty {
+                    favoritesSection
+                }
+
                 if !viewModel.nearestStations.isEmpty {
                     stationSection(
                         title: "Nærmeste",
@@ -79,7 +83,7 @@ struct TrainsTabView: View {
                     recentStationsSection
                 }
 
-                if viewModel.nearestStations.isEmpty && recentStationsExcludingFavorites.isEmpty {
+                if favoritesStore.stations.isEmpty && viewModel.nearestStations.isEmpty && recentStationsExcludingFavorites.isEmpty {
                     ContentUnavailableView(
                         "Velg en stasjon",
                         systemImage: "tram.fill.tunnel",
@@ -94,6 +98,16 @@ struct TrainsTabView: View {
             .appReadableContentWidth()
         }
         .scrollIndicators(.hidden)
+    }
+
+    private var favoritesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader(title: "Favoritter", systemImage: "star.fill", tint: .yellow)
+
+            stationList(favoritesStore.stations, bullet: .favorite) { station in
+                favoritesStore.remove(station)
+            }
+        }
     }
 
     private func stationSection(

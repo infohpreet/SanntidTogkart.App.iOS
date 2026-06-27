@@ -10,7 +10,6 @@ struct HomeTabView: View {
     @State private var selectedStation: TraseStation?
     @State private var selectedStationMessage: StationMessage?
     @State private var selectedTrainMessage: TrainMessage?
-    @State private var activeSwipeStationID: UUID?
     @State private var viewModel = HomeTabViewModel()
 
     var body: some View {
@@ -25,7 +24,7 @@ struct HomeTabView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 18) {
+                        LazyVStack(alignment: .leading, spacing: 18) {
                             favoriteSection
 
                             if let nearestStation = viewModel.nearestStation {
@@ -93,6 +92,7 @@ struct HomeTabView: View {
             HomeFavoriteStationBoard(
                 station: station,
                 distanceText: viewModel.distanceText(for: station),
+                knownStations: viewModel.stations,
                 onSelectStation: {
                     selectStation(station)
                 },
@@ -105,17 +105,9 @@ struct HomeTabView: View {
     }
 
     private func favoriteBoards(_ stations: [TraseStation]) -> some View {
-        VStack(spacing: 14) {
+        LazyVStack(spacing: 14) {
             ForEach(stations) { station in
-                SwipeDeleteIconRow(
-                    rowID: station.id,
-                    activeRowID: $activeSwipeStationID,
-                    onDelete: {
-                        favoritesStore.remove(station)
-                    }
-                ) {
-                    favoriteBoard(station)
-                }
+                favoriteBoard(station)
             }
         }
     }
@@ -135,6 +127,7 @@ struct HomeTabView: View {
         HomeFavoriteStationBoard(
             station: station,
             distanceText: viewModel.distanceText(for: station),
+            knownStations: viewModel.stations,
             onSelectStation: {
                 selectStation(station)
             },
@@ -147,14 +140,12 @@ struct HomeTabView: View {
     }
 
     private func selectStation(_ station: TraseStation) {
-        activeSwipeStationID = nil
         lastUsedStore.record(station)
         selectedStation = station
         isTrainListPresented = true
     }
 
     private func selectTrainRoute(for station: TraseStation, stationMessage: StationMessage, trainMessage: TrainMessage?) {
-        activeSwipeStationID = nil
         lastUsedStore.record(station)
         selectedStation = station
         selectedStationMessage = stationMessage
@@ -163,117 +154,15 @@ struct HomeTabView: View {
     }
 }
 
-private struct SwipeDeleteIconRow<Content: View>: View {
-    let rowID: UUID
-    @Binding var activeRowID: UUID?
-    let onDelete: () -> Void
-    @ViewBuilder let content: () -> Content
-
-    @State private var offsetX: CGFloat = 0
-    @State private var rowHeight: CGFloat = 56
-
-    private var revealWidth: CGFloat {
-        max(44, rowHeight)
-    }
-
-    var body: some View {
-        ZStack(alignment: .trailing) {
-            deleteButton
-
-            content()
-                .contentShape(Rectangle())
-                .offset(x: offsetX)
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .onAppear {
-                                rowHeight = proxy.size.height
-                            }
-                            .onChange(of: proxy.size.height) { _, newHeight in
-                                rowHeight = newHeight
-                            }
-                    }
-                }
-                .simultaneousGesture(dragGesture)
-                .animation(.spring(response: 0.23, dampingFraction: 0.86), value: offsetX)
-        }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        .clipped()
-        .onChange(of: activeRowID) { _, newValue in
-            closeIfInactive(newValue)
-        }
-    }
-
-    private var deleteButton: some View {
-        HStack {
-            Spacer(minLength: 0)
-
-            Button(role: .destructive) {
-                activeRowID = nil
-                onDelete()
-            } label: {
-                Image(systemName: "trash")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: revealWidth, height: rowHeight)
-                    .background(Color.red)
-            }
-            .buttonStyle(.plain)
-            .opacity(offsetX <= -8 ? 1 : 0)
-            .allowsHitTesting(offsetX <= -8)
-        }
-        .frame(width: revealWidth)
-        .frame(height: rowHeight)
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 16)
-            .onChanged { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else {
-                    return
-                }
-
-                if value.translation.width < 0, activeRowID != rowID {
-                    activeRowID = rowID
-                    offsetX = 0
-                }
-
-                offsetX = max(-revealWidth, min(0, value.translation.width))
-            }
-            .onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else {
-                    offsetX = 0
-                    return
-                }
-
-                let shouldReveal = value.translation.width < -24 || value.predictedEndTranslation.width < -46
-                if shouldReveal {
-                    activeRowID = rowID
-                    offsetX = -revealWidth
-                } else {
-                    activeRowID = nil
-                    offsetX = 0
-                }
-            }
-    }
-
-    private func closeIfInactive(_ activeID: UUID?) {
-        guard activeID == rowID else {
-            offsetX = 0
-            return
-        }
-    }
-}
-
 @MainActor
 @Observable
 private final class HomeTabViewModel {
     private(set) var currentLocation: CLLocation?
     private(set) var nearestStation: TraseStation?
+    private(set) var stations: [TraseStation] = []
 
     private let service: SignalRService
     private let locationManager: HomeTabLocationManager
-    private var stations: [TraseStation] = []
     private var hasStarted = false
 
     init() {
@@ -374,6 +263,7 @@ private final class HomeTabViewModel {
 private struct HomeFavoriteStationBoard: View {
     let station: TraseStation
     let distanceText: String?
+    let knownStations: [TraseStation]
     let onSelectStation: () -> Void
     let onSelectTrain: (StationMessage, TrainMessage?) -> Void
 
@@ -511,7 +401,7 @@ private struct HomeFavoriteStationBoard: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 16) {
-                Text(viewModel.destinationText(for: stationMessage))
+                Text(viewModel.destinationText(for: stationMessage, using: knownStations))
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
@@ -576,7 +466,7 @@ private struct HomeFavoriteStationBoard: View {
             HStack(spacing: 8) {
                 trainBadge(for: stationMessage, size: .small)
 
-                Text(viewModel.destinationText(for: stationMessage))
+                Text(viewModel.destinationText(for: stationMessage, using: knownStations))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
@@ -679,12 +569,13 @@ private enum HomeFavoriteBoardStyle {
 private final class HomeFavoriteStationBoardViewModel {
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
-    private var stations: [TraseStation] = []
     var errorMessage: String?
     var isLoading = false
 
     private let service: SignalRService
     private var requestedStationKey: String?
+    private var requestedStationShortName: String?
+    private var requestedCountryCode: String?
     private var hasStarted = false
 
     init() {
@@ -708,10 +599,6 @@ private final class HomeFavoriteStationBoardViewModel {
     }
 
     private func configureBindings() {
-        service.onStations = { [weak self] stations in
-            self?.stations = stations
-        }
-
         service.onStationMessages = { [weak self] stationMessages in
             guard let self,
                   self.matchesRequestedStation(stationMessages) else {
@@ -757,7 +644,7 @@ private final class HomeFavoriteStationBoardViewModel {
             ?? "-"
     }
 
-    func destinationText(for stationMessage: StationMessage) -> String {
+    func destinationText(for stationMessage: StationMessage, using stations: [TraseStation]) -> String {
         let rawStationName = normalizedText(trainDetail(for: stationMessage)?.destination)
             ?? normalizedText(stationMessage.city)
 
@@ -765,7 +652,7 @@ private final class HomeFavoriteStationBoardViewModel {
             return "Ukjent"
         }
 
-        return displayStationName(for: rawStationName, countryCode: stationMessage.countryCode)
+        return displayStationName(for: rawStationName, countryCode: stationMessage.countryCode, using: stations)
     }
 
     func trackText(for stationMessage: StationMessage) -> String? {
@@ -808,12 +695,13 @@ private final class HomeFavoriteStationBoardViewModel {
         }
 
         requestedStationKey = station.storageKey
+        requestedStationShortName = station.shortName.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        requestedCountryCode = station.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]
 
         await service.start()
-        await service.requestStations()
         await service.requestStationMessages(
             countryCode: station.countryCode,
             stationShortName: stationShortName,
@@ -822,7 +710,12 @@ private final class HomeFavoriteStationBoardViewModel {
     }
 
     private func matchesRequestedStation(_ stationMessages: [StationMessage]) -> Bool {
-        guard let requestedStationKey, let firstMessage = stationMessages.first else {
+        guard
+            let requestedStationKey,
+            let requestedStationShortName,
+            let requestedCountryCode,
+            let firstMessage = stationMessages.first
+        else {
             return false
         }
 
@@ -831,7 +724,8 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        return stations.first(where: { $0.storageKey == requestedStationKey })?.shortName.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return requestedCountryCode == firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            && requestedStationShortName == firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 
     private func requestTrainDetails(for stationMessages: [StationMessage]) {
@@ -879,7 +773,7 @@ private final class HomeFavoriteStationBoardViewModel {
         stationMessage.etd ?? stationMessage.std ?? stationMessage.atd
     }
 
-    private func displayStationName(for rawValue: String, countryCode: String) -> String {
+    private func displayStationName(for rawValue: String, countryCode: String, using stations: [TraseStation]) -> String {
         let normalizedValue = normalizedText(rawValue) ?? rawValue
 
         if let station = stations.first(where: { station in
