@@ -583,20 +583,15 @@ struct TrainMapTabView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
-        .background(bottomControlBarBackgroundColor, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.primary.opacity(0.10), lineWidth: 0.8)
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
         }
-        .shadow(color: Color.black.opacity(0.08), radius: 10, y: 4)
-    }
-
-    private var bottomControlBarBackgroundColor: Color {
-        if colorScheme == .dark {
-            return Color.white.opacity(0.18)
-        }
-
-        return Color(.systemBackground).opacity(0.52)
+        .shadow(color: Color.black.opacity(0.14), radius: 18, y: 8)
     }
 
     private var highlightedMapControlIconColor: Color {
