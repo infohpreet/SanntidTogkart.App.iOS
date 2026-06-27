@@ -12,7 +12,14 @@ struct DashboardView: View {
             HomeTabView()
             .tag(DashboardTab.home)
             .tabItem {
-                tabItemLabel("Hjem", systemImage: "house")
+                VStack(spacing: 2) {
+                    Image("HomeTabIcon")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                    Text("Hjem")
+                }
             }
 
             TrainsTabView()
