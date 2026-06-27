@@ -25,7 +25,7 @@ enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
         case .stations:
             return "Stasjoner"
         case .settings:
-            return "Innstillinger"
+            return "Profil"
         }
     }
 }

@@ -36,7 +36,7 @@ struct SettingsTabView: View {
                 .appReadableContentWidth()
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("Innstillinger")
+            .navigationTitle("Profil")
         }
         .alert("Bytte miljø?", isPresented: $isShowingEnvironmentChangeConfirmation) {
             Button("Avbryt", role: .cancel) {

@@ -42,7 +42,7 @@ struct DashboardView: View {
             SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)
             .tag(DashboardTab.settings)
             .tabItem {
-                tabItemLabel("Innstillinger", systemImage: "gear")
+                tabItemLabel("Profil", systemImage: "person")
             }
         }
     }
