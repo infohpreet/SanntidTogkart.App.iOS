@@ -418,7 +418,7 @@ private struct SwipeDeleteIconRow<Content: View>: View {
                 .onTapGesture {
                     handleTap()
                 }
-                .gesture(dragGesture)
+                .simultaneousGesture(dragGesture)
                 .animation(.spring(response: 0.23, dampingFraction: 0.86), value: offsetX)
         }
         .clipped()
@@ -450,7 +450,7 @@ private struct SwipeDeleteIconRow<Content: View>: View {
     }
 
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 10)
+        DragGesture(minimumDistance: 16)
             .onChanged { value in
                 guard abs(value.translation.width) > abs(value.translation.height) else {
                     return
