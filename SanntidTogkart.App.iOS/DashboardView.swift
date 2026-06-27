@@ -9,10 +9,16 @@ struct DashboardView: View {
 
     var body: some View {
         TabView(selection: selectedTabBinding) {
+            HomeTabView()
+            .tag(DashboardTab.home)
+            .tabItem {
+                tabItemLabel("Hjem", systemImage: "house")
+            }
+
             TrainsTabView()
             .tag(DashboardTab.trains)
             .tabItem {
-                tabItemLabel("NÅ", systemImage: "clock")
+                tabItemLabel("Søk", systemImage: "magnifyingglass")
             }
 
             TrainMapTabView()

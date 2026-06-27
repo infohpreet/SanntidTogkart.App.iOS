@@ -7,7 +7,7 @@ struct SettingsTabView: View {
     @Bindable var authSession: AuthSession
     let onLogout: () -> Void
     @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
-    @AppStorage(AppNavigationCenter.startupDashboardTabKey) private var startupDashboardTabRawValue = DashboardTab.trains.rawValue
+    @AppStorage(AppNavigationCenter.startupDashboardTabKey) private var startupDashboardTabRawValue = DashboardTab.home.rawValue
     @AppStorage("showAppIntroductionOnNextLaunch") private var showAppIntroductionOnNextLaunch = false
     @State private var selectedEnvironment = AuthConfig.currentEnvironment
     @State private var pendingEnvironment: AppEnvironment?

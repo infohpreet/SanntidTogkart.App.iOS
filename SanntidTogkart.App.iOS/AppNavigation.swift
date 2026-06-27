@@ -4,6 +4,7 @@ import Observation
 enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
     case map
     case trains
+    case home
     case routes
     case stations
     case settings
@@ -12,14 +13,16 @@ enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
         self
     }
 
-    static let startupTabs: [DashboardTab] = [.trains, .map, .settings]
+    static let startupTabs: [DashboardTab] = [.home, .trains, .map]
 
     var title: String {
         switch self {
         case .map:
             return "Kart"
         case .trains:
-            return "NÅ"
+            return "Søk"
+        case .home:
+            return "Hjem"
         case .routes:
             return "Ruter"
         case .stations:
@@ -60,7 +63,7 @@ final class AppNavigationCenter {
     private init() {
         let storedRawValue = UserDefaults.standard.string(forKey: Self.startupDashboardTabKey)
         let storedTab = storedRawValue.flatMap(DashboardTab.init(rawValue:))
-        selectedDashboardTab = DashboardTab.startupTabs.contains(storedTab ?? .trains) ? (storedTab ?? .trains) : .trains
+        selectedDashboardTab = DashboardTab.startupTabs.contains(storedTab ?? .home) ? (storedTab ?? .home) : .home
     }
 
     func showStationOnMap(_ station: TraseStation) {

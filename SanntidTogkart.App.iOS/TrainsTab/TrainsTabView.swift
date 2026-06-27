@@ -31,7 +31,7 @@ struct TrainsTabView: View {
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle(tabGreetingTitle)
+            .navigationTitle("Søk")
             .searchable(text: $searchText, prompt: "Søk etter stasjon")
             .navigationDestination(isPresented: $isTrainListPresented) {
                 if let selectedStation {
@@ -62,35 +62,9 @@ struct TrainsTabView: View {
         lastUsedStore.stations.filter { !favoriteStationKeys.contains($0.storageKey) }
     }
 
-    private var tabGreetingTitle: String {
-        let hour = Calendar.autoupdatingCurrent.component(.hour, from: AppTime.now)
-
-        switch hour {
-        case 5..<12:
-            return "God morgen!"
-        case 12..<18:
-            return "God ettermiddag!"
-        default:
-            return "God kveld!"
-        }
-    }
-
     private var stationSections: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if !favoritesStore.stations.isEmpty {
-                    stationSection(
-                        title: "Favoritter",
-                        systemImage: "star.fill",
-                        stations: favoritesStore.stations,
-                        tint: .yellow,
-                        bullet: .favorite,
-                        onDeleteStation: { station in
-                            favoritesStore.remove(station)
-                        }
-                    )
-                }
-
                 if !viewModel.nearestStations.isEmpty {
                     stationSection(
                         title: "Nærmeste",
@@ -105,7 +79,7 @@ struct TrainsTabView: View {
                     recentStationsSection
                 }
 
-                if viewModel.nearestStations.isEmpty && favoritesStore.stations.isEmpty && recentStationsExcludingFavorites.isEmpty {
+                if viewModel.nearestStations.isEmpty && recentStationsExcludingFavorites.isEmpty {
                     ContentUnavailableView(
                         "Velg en stasjon",
                         systemImage: "tram.fill.tunnel",
