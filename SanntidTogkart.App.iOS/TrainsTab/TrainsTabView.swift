@@ -7,6 +7,7 @@ struct TrainsTabView: View {
     @State private var lastUsedStore = TrainStationLastUsedStore.shared
     @State private var isTrainListPresented = false
     @State private var selectedStation: TraseStation?
+    @State private var activeSwipeStationID: UUID?
     @State private var searchText = ""
     @State private var viewModel = TrainsTabViewModel()
 
@@ -83,7 +84,10 @@ struct TrainsTabView: View {
                         systemImage: "star.fill",
                         stations: favoritesStore.stations,
                         tint: .yellow,
-                        bullet: .favorite
+                        bullet: .favorite,
+                        onDeleteStation: { station in
+                            favoritesStore.remove(station)
+                        }
                     )
                 }
 
@@ -118,11 +122,18 @@ struct TrainsTabView: View {
         .scrollIndicators(.hidden)
     }
 
-    private func stationSection(title: String, systemImage: String, stations: [TraseStation], tint: Color, bullet: StationBulletStyle) -> some View {
+    private func stationSection(
+        title: String,
+        systemImage: String,
+        stations: [TraseStation],
+        tint: Color,
+        bullet: StationBulletStyle,
+        onDeleteStation: ((TraseStation) -> Void)? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader(title: title, systemImage: systemImage, tint: tint)
 
-            stationList(stations, bullet: bullet)
+            stationList(stations, bullet: bullet, onDeleteStation: onDeleteStation)
         }
     }
 
@@ -130,7 +141,9 @@ struct TrainsTabView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader(title: "Sist brukte", systemImage: "clock.arrow.circlepath", tint: .orange)
 
-            stationList(recentStationsExcludingFavorites, bullet: .recent)
+            stationList(recentStationsExcludingFavorites, bullet: .recent) { station in
+                lastUsedStore.remove(station)
+            }
 
             Button {
                 lastUsedStore.clear()
@@ -152,17 +165,31 @@ struct TrainsTabView: View {
         }
     }
 
-    private func stationList(_ stations: [TraseStation], bullet: StationBulletStyle) -> some View {
+    private func stationList(
+        _ stations: [TraseStation],
+        bullet: StationBulletStyle,
+        onDeleteStation: ((TraseStation) -> Void)? = nil
+    ) -> some View {
         VStack(spacing: 0) {
             stationDivider
 
             ForEach(Array(stations.enumerated()), id: \.element.id) { index, station in
-                Button {
-                    selectStation(station)
-                } label: {
-                    stationTile(station, bullet: bullet)
+                if let onDeleteStation {
+                    SwipeDeleteIconRow(
+                        rowID: station.id,
+                        activeRowID: $activeSwipeStationID,
+                        onTap: {
+                            selectStation(station)
+                        },
+                        onDelete: {
+                            onDeleteStation(station)
+                        }
+                    ) {
+                        stationTile(station, bullet: bullet)
+                    }
+                } else {
+                    stationSelectionButton(station, bullet: bullet)
                 }
-                .buttonStyle(.plain)
 
                 if index < stations.count - 1 {
                     stationDivider
@@ -177,6 +204,16 @@ struct TrainsTabView: View {
         Rectangle()
             .fill(AppTheme.border)
             .frame(height: 1)
+    }
+
+    private func stationSelectionButton(_ station: TraseStation, bullet: StationBulletStyle) -> some View {
+        Button {
+            activeSwipeStationID = nil
+            selectStation(station)
+        } label: {
+            stationTile(station, bullet: bullet)
+        }
+        .buttonStyle(.plain)
     }
 
     private func sectionHeader(title: String, systemImage: String, tint: Color) -> some View {
@@ -344,6 +381,122 @@ private enum StationBulletStyle {
     case nearest
     case favorite
     case recent
+}
+
+private struct SwipeDeleteIconRow<Content: View>: View {
+    let rowID: UUID
+    @Binding var activeRowID: UUID?
+    let onTap: () -> Void
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var offsetX: CGFloat = 0
+    @State private var rowHeight: CGFloat = 56
+
+    private var revealWidth: CGFloat {
+        max(44, rowHeight)
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            deleteButton
+
+            content()
+                .contentShape(Rectangle())
+                .offset(x: offsetX)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear {
+                                rowHeight = proxy.size.height
+                            }
+                            .onChange(of: proxy.size.height) { _, newHeight in
+                                rowHeight = newHeight
+                            }
+                    }
+                }
+                .onTapGesture {
+                    handleTap()
+                }
+                .gesture(dragGesture)
+                .animation(.spring(response: 0.23, dampingFraction: 0.86), value: offsetX)
+        }
+        .clipped()
+        .onChange(of: activeRowID) { _, newValue in
+            closeIfInactive(newValue)
+        }
+    }
+
+    private var deleteButton: some View {
+        HStack {
+            Spacer(minLength: 0)
+
+            Button(role: .destructive) {
+                activeRowID = nil
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: revealWidth, height: rowHeight)
+                    .background(Color.red)
+            }
+            .buttonStyle(.plain)
+            .opacity(offsetX <= -8 ? 1 : 0)
+            .allowsHitTesting(offsetX <= -8)
+        }
+        .frame(width: revealWidth)
+        .frame(height: rowHeight)
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else {
+                    return
+                }
+
+                if value.translation.width < 0, activeRowID != rowID {
+                    activeRowID = rowID
+                    offsetX = 0
+                }
+
+                offsetX = max(-revealWidth, min(0, value.translation.width))
+            }
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else {
+                    offsetX = 0
+                    return
+                }
+
+                let shouldReveal = value.translation.width < -24 || value.predictedEndTranslation.width < -46
+                if shouldReveal {
+                    activeRowID = rowID
+                    offsetX = -revealWidth
+                } else {
+                    activeRowID = nil
+                    offsetX = 0
+                }
+            }
+    }
+
+    private func closeIfInactive(_ activeID: UUID?) {
+        guard activeID != rowID else {
+            return
+        }
+
+        offsetX = 0
+    }
+
+    private func handleTap() {
+        if offsetX < 0 {
+            activeRowID = nil
+            offsetX = 0
+        } else {
+            activeRowID = nil
+            onTap()
+        }
+    }
 }
 
 private struct TrainsTabDropdownNorwayFlagBadge: View {

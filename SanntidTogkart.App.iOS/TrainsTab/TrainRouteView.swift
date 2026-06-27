@@ -2,6 +2,8 @@ import Observation
 import SwiftUI
 
 struct TrainRouteView: View {
+    @Environment(\.dismiss) private var dismiss
+
     let station: TraseStation?
     let stationMessage: StationMessage?
     let trainMessage: TrainMessage?
@@ -67,7 +69,11 @@ struct TrainRouteView: View {
             if let activeMapTrain = viewModel.activeMapTrain {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        let openedFromMapTab = navigationCenter.selectedDashboardTab == .map
                         navigationCenter.showTrainOnMap(activeMapTrain)
+                        if openedFromMapTab {
+                            dismiss()
+                        }
                     } label: {
                         Image(systemName: "map")
                     }

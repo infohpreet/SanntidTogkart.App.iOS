@@ -26,6 +26,16 @@ final class TrainStationLastUsedStore {
         UserDefaults.standard.removeObject(forKey: defaultsKey)
     }
 
+    func remove(_ station: TraseStation) {
+        let key = station.storageKey
+        guard let index = stations.firstIndex(where: { $0.storageKey == key }) else {
+            return
+        }
+
+        stations.remove(at: index)
+        persist()
+    }
+
     private func load() {
         guard let data = UserDefaults.standard.data(forKey: defaultsKey) else {
             stations = []
