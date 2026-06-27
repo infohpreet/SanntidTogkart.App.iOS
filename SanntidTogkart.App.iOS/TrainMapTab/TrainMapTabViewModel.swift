@@ -68,6 +68,7 @@ final class TrainMapTabViewModel {
     private let service: SignalRService
     private var hasStarted = false
     private var liveTrainMessages: [TrainMessage] = []
+    private var selectedTrainFallback: TrainMessage?
     private var selectedTrainStations: [StationMessage] = []
     private var selectedTrainRouteRequest: SelectedTrainRouteRequest?
 
@@ -87,6 +88,7 @@ final class TrainMapTabViewModel {
         }
 
         return trainMessages.first(where: { $0.id == selectedTrainMessageID })
+            ?? (selectedTrainFallback?.id == selectedTrainMessageID ? selectedTrainFallback : nil)
     }
 
     private func configureBindings() {
@@ -129,8 +131,14 @@ final class TrainMapTabViewModel {
 
             if let selectedTrainMessageID = self.selectedTrainMessageID,
                !activeTrainMessages.contains(where: { $0.id == selectedTrainMessageID }) {
-                self.clearSelection()
+                if self.selectedTrainFallback?.id != selectedTrainMessageID {
+                    self.clearSelection()
+                }
             } else {
+                if let selectedTrainMessageID = self.selectedTrainMessageID,
+                   let latestSelectedTrain = activeTrainMessages.first(where: { $0.id == selectedTrainMessageID }) {
+                    self.selectedTrainFallback = latestSelectedTrain
+                }
                 self.updateSelectedTrainRouteWithLatestPosition()
                 self.rebuildSelectedTrainFutureRoute()
             }
@@ -241,6 +249,7 @@ final class TrainMapTabViewModel {
 
     func selectTrain(_ trainMessage: TrainMessage) async {
         selectedTrainMessageID = trainMessage.id
+        selectedTrainFallback = trainMessage
         selectedTrainRouteCoordinates = []
         selectedTrainFutureRouteCoordinates = []
         selectedTrainStations = []
@@ -276,6 +285,7 @@ final class TrainMapTabViewModel {
 
     func clearSelection() {
         selectedTrainMessageID = nil
+        selectedTrainFallback = nil
         selectedTrainRouteCoordinates = []
         selectedTrainFutureRouteCoordinates = []
         selectedTrainRemainingDistance = nil

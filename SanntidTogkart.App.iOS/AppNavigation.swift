@@ -39,6 +39,10 @@ struct StationMapSelectionRequest: Equatable {
 
 struct TrainMapSelectionRequest: Equatable {
     let trainMessageID: Int
+    let countryCode: String
+    let trainNo: String
+    let advertisementTrainNo: String
+    let originDate: String
     let requestID = UUID()
 }
 
@@ -51,6 +55,7 @@ final class AppNavigationCenter {
     var selectedDashboardTab: DashboardTab
     var stationMapSelectionRequest: StationMapSelectionRequest?
     var trainMapSelectionRequest: TrainMapSelectionRequest?
+    var trainMapSelectionTrainMessage: TrainMessage?
 
     private init() {
         let storedRawValue = UserDefaults.standard.string(forKey: Self.startupDashboardTabKey)
@@ -61,6 +66,7 @@ final class AppNavigationCenter {
     func showStationOnMap(_ station: TraseStation) {
         selectedDashboardTab = .map
         trainMapSelectionRequest = nil
+        trainMapSelectionTrainMessage = nil
         stationMapSelectionRequest = StationMapSelectionRequest(
             stationID: station.id,
             latitude: station.latitude,
@@ -71,12 +77,20 @@ final class AppNavigationCenter {
     func showTrainOnMap(_ trainMessage: TrainMessage) {
         selectedDashboardTab = .map
         stationMapSelectionRequest = nil
-        trainMapSelectionRequest = TrainMapSelectionRequest(trainMessageID: trainMessage.id)
+        trainMapSelectionTrainMessage = trainMessage
+        trainMapSelectionRequest = TrainMapSelectionRequest(
+            trainMessageID: trainMessage.id,
+            countryCode: trainMessage.countryCode,
+            trainNo: trainMessage.trainNo,
+            advertisementTrainNo: trainMessage.advertisementTrainNo,
+            originDate: trainMessage.originDate
+        )
     }
 
     func resetToMap() {
         selectedDashboardTab = .map
         stationMapSelectionRequest = nil
         trainMapSelectionRequest = nil
+        trainMapSelectionTrainMessage = nil
     }
 }

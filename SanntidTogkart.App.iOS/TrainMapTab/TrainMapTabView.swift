@@ -9,6 +9,7 @@ struct TrainMapTabView: View {
     @Environment(\.openURL) private var openURL
     @State private var navigationCenter = AppNavigationCenter.shared
     @State private var connectionCenter = SignalRConnectionCenter.shared
+    @State private var logStore = AppLogStore.shared
     @State private var locationManager = TrainMapLocationManager()
     @State private var viewModel = TrainMapTabViewModel()
     @State private var isZoomedOut = false
@@ -32,6 +33,8 @@ struct TrainMapTabView: View {
     @State private var isTrainStationsViewPresented = false
     @State private var pendingStationSelectionRequest: StationMapSelectionRequest?
     @State private var pendingTrainSelectionRequest: TrainMapSelectionRequest?
+    @State private var lastLoggedPendingTrainSelectionRequestID: UUID?
+    @State private var hasLoggedZeroSizedMapSurface = false
     @State private var shouldNavigateToCurrentLocation = false
     @State private var presentedTrainListEntries: [TrainListEntry] = []
     @State private var visibleRegion = MKCoordinateRegion(
@@ -53,6 +56,17 @@ struct TrainMapTabView: View {
                 currentLocationContent
                 stationAnnotationContent
                 trainAnnotationContent
+            }
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            logMapSurfaceSizeIfNeeded(proxy.size)
+                        }
+                        .onChange(of: proxy.size) { _, newSize in
+                            logMapSurfaceSizeIfNeeded(newSize)
+                        }
+                }
             }
             .mapStyle(mapMode.mapStyle)
             .mapControls {
@@ -332,6 +346,9 @@ struct TrainMapTabView: View {
             .task {
                 await viewModel.start()
             }
+            .onAppear {
+                processNavigationRequestsIfNeeded()
+            }
             .onChange(of: navigationCenter.stationMapSelectionRequest) { _, request in
                 guard let request else {
                     return
@@ -376,7 +393,10 @@ struct TrainMapTabView: View {
 
                 revealStationOnMap(pendingStationSelectionRequest)
             }
-            .onChange(of: viewModel.trainMessages.map(\.id)) { _, _ in
+            .onChange(of: viewModel.trainMessages.map { trainMessage in
+                let serviceTime = trainMessage.trainPosition?.geoJson.properties.serviceTime.timeIntervalSince1970 ?? 0
+                return "\(trainMessage.id)|\(trainMessage.countryCode)|\(trainMessage.trainNo)|\(trainMessage.advertisementTrainNo)|\(trainMessage.originDate)|\(serviceTime)"
+            }) { _, _ in
                 guard let pendingTrainSelectionRequest else {
                     return
                 }
@@ -506,6 +526,24 @@ struct TrainMapTabView: View {
                         }
                         .buttonStyle(.plain)
                         .zIndex(2)
+                    }
+                }
+            }
+
+            if let selectedTrain,
+               let coordinate = viewModel.mapCoordinate(for: selectedTrain),
+               !renderedTrains.contains(where: { $0.id == selectedTrain.id }) {
+                Annotation(viewModel.displayLineNumber(for: selectedTrain), coordinate: coordinate) {
+                    if isCountryZoomedOut {
+                        TrainMapDotAnnotation(
+                            trainType: selectedTrain.trainType,
+                            isHighlighted: true
+                        )
+                    } else {
+                        TrainMapAnnotation(
+                            trainType: selectedTrain.trainType,
+                            isHighlighted: true
+                        )
                     }
                 }
             }
@@ -749,7 +787,7 @@ struct TrainMapTabView: View {
 
     private func selectTrain(_ train: TrainMessage) {
         dismissTrainList()
-        isSelectedTrainCardVisible = true
+        isSelectedTrainCardVisible = false
 
         if
             let coordinate = viewModel.mapCoordinate(for: train),
@@ -833,14 +871,108 @@ struct TrainMapTabView: View {
     }
 
     private func revealTrainOnMap(_ request: TrainMapSelectionRequest) {
-        guard let train = viewModel.trainMessages.first(where: { $0.id == request.trainMessageID }) else {
+        let directRequestedTrain = navigationCenter.trainMapSelectionTrainMessage
+            .flatMap { matches(train: $0, request: request) ? $0 : nil }
+
+        let resolvedTrain = directRequestedTrain
+            ?? viewModel.trainMessages.first(where: { $0.id == request.trainMessageID })
+            ?? viewModel.trainMessages.first(where: { matches(train: $0, request: request) })
+            ?? SignalRService.activeMapTrain(matchingTrainMessageID: request.trainMessageID)
+            ?? SignalRService.activeMapTrain(
+                countryCode: request.countryCode,
+                trainNo: request.trainNo,
+                advertisementTrainNo: request.advertisementTrainNo,
+                originDate: request.originDate
+            )
+
+        guard let train = resolvedTrain else {
             pendingTrainSelectionRequest = request
+            logPendingTrainSelectionIfNeeded(request)
             return
         }
 
         pendingTrainSelectionRequest = nil
+        navigationCenter.trainMapSelectionRequest = nil
+        navigationCenter.trainMapSelectionTrainMessage = nil
         selectedStationID = nil
         selectTrain(train)
+    }
+
+    private func logMapSurfaceSizeIfNeeded(_ size: CGSize) {
+        if size.width <= 0 || size.height <= 0 {
+            guard !hasLoggedZeroSizedMapSurface else {
+                return
+            }
+
+            hasLoggedZeroSizedMapSurface = true
+            logStore.logError(
+                category: "Kart",
+                message: "Kartflate fikk ugyldig størrelse",
+                details: "Map-surface size: \(size.width)x\(size.height). Dette kan samsvare med CAMetalLayer setDrawableSize-varsler i konsollen."
+            )
+        } else {
+            hasLoggedZeroSizedMapSurface = false
+        }
+    }
+
+    private func logPendingTrainSelectionIfNeeded(_ request: TrainMapSelectionRequest) {
+        guard lastLoggedPendingTrainSelectionRequestID != request.requestID else {
+            return
+        }
+
+        lastLoggedPendingTrainSelectionRequestID = request.requestID
+        logStore.logError(
+            category: "Kart",
+            message: "Automatisk togvalg venter på map-data",
+            details: "trainMessageID=\(request.trainMessageID), countryCode=\(request.countryCode), trainNo=\(request.trainNo), advertisementTrainNo=\(request.advertisementTrainNo), originDate=\(request.originDate)"
+        )
+    }
+
+    private func processNavigationRequestsIfNeeded() {
+        guard navigationCenter.selectedDashboardTab == .map else {
+            return
+        }
+
+        if let trainRequest = navigationCenter.trainMapSelectionRequest {
+            revealTrainOnMap(trainRequest)
+        }
+
+        if let stationRequest = navigationCenter.stationMapSelectionRequest {
+            revealStationOnMap(stationRequest)
+        }
+    }
+
+    private func matches(train: TrainMessage, request: TrainMapSelectionRequest) -> Bool {
+        let trainCountryCode = train.countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestCountryCode = request.countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trainCountryCode.localizedCaseInsensitiveCompare(requestCountryCode) == .orderedSame else {
+            return false
+        }
+
+        let trainOriginDate = train.originDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestOriginDate = request.originDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trainOriginDate == requestOriginDate else {
+            return false
+        }
+
+        let trainTrainNo = train.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trainAdvertisementTrainNo = train.advertisementTrainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestTrainNo = request.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestAdvertisementTrainNo = request.advertisementTrainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !requestTrainNo.isEmpty && trainTrainNo == requestTrainNo {
+            return true
+        }
+
+        if !requestAdvertisementTrainNo.isEmpty && trainTrainNo == requestAdvertisementTrainNo {
+            return true
+        }
+
+        if !requestTrainNo.isEmpty && trainAdvertisementTrainNo == requestTrainNo {
+            return true
+        }
+
+        return !requestAdvertisementTrainNo.isEmpty && trainAdvertisementTrainNo == requestAdvertisementTrainNo
     }
 
     private func dismissTrainList() {

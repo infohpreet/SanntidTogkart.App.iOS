@@ -123,6 +123,47 @@ final class SignalRService {
         }
     }
 
+    static func activeMapTrain(matchingTrainMessageID trainMessageID: Int) -> TrainMessage? {
+        liveTrainMessagesByID.values.first { cachedTrainMessage in
+            cachedTrainMessage.id == trainMessageID && isActiveMapTrain(cachedTrainMessage)
+        }
+    }
+
+    static func activeMapTrain(
+        countryCode: String,
+        trainNo: String,
+        advertisementTrainNo: String,
+        originDate: String
+    ) -> TrainMessage? {
+        let normalizedCountryCode = countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedTrainNo = trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedAdvertisementTrainNo = advertisementTrainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedOriginDate = originDate.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return liveTrainMessagesByID.values.first { cachedTrainMessage in
+            guard isActiveMapTrain(cachedTrainMessage) else {
+                return false
+            }
+
+            let cachedCountryCode = cachedTrainMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cachedTrainNo = cachedTrainMessage.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cachedAdvertisementTrainNo = cachedTrainMessage.advertisementTrainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cachedOriginDate = cachedTrainMessage.originDate.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard cachedCountryCode.localizedCaseInsensitiveCompare(normalizedCountryCode) == .orderedSame,
+                  cachedOriginDate == normalizedOriginDate else {
+                return false
+            }
+
+            if !normalizedTrainNo.isEmpty && (cachedTrainNo == normalizedTrainNo || cachedAdvertisementTrainNo == normalizedTrainNo) {
+                return true
+            }
+
+            return !normalizedAdvertisementTrainNo.isEmpty
+                && (cachedTrainNo == normalizedAdvertisementTrainNo || cachedAdvertisementTrainNo == normalizedAdvertisementTrainNo)
+        }
+    }
+
     func requestTrainMetrics() async {
         if let cachedMetrics = Self.cachedMetrics {
             onMetrics?(cachedMetrics)
