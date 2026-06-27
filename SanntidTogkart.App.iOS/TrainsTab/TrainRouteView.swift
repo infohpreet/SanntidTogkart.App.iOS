@@ -124,6 +124,17 @@ struct TrainRouteView: View {
             ForEach(Array(viewModel.stationMessages.enumerated()), id: \.element.id) { index, message in
                 routeRow(message, index: index)
             }
+
+            Rectangle()
+                .fill(TrainRouteStyle.divider)
+                .frame(height: 1)
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+
+            routeMetadataGrid
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
         }
         .background(TrainRouteStyle.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
@@ -191,6 +202,36 @@ struct TrainRouteView: View {
         .padding(.horizontal, 18)
         .padding(.top, 24)
         .padding(.bottom, 18)
+        }
+    }
+
+    private var routeMetadataGrid: some View {
+        let columns = [
+            GridItem(.flexible(), alignment: .leading),
+            GridItem(.flexible(), alignment: .leading),
+            GridItem(.flexible(), alignment: .leading)
+        ]
+
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            routeMetadataItem(title: "Tognummer", value: viewModel.trainNumberText)
+            routeMetadataItem(title: "Togtype", value: viewModel.trainTypeText)
+            routeMetadataItem(title: "Operatør", value: viewModel.operatorText)
+            routeMetadataItem(title: "Stopp", value: "\(viewModel.stopCount)")
+            routeMetadataItem(title: "Passering", value: "\(viewModel.passingCount)")
+        }
+    }
+
+    private func routeMetadataItem(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(TrainRouteStyle.secondaryText)
+
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
     }
 
@@ -526,6 +567,31 @@ private final class TrainRouteViewModel {
         return date.map { AppTime.localTimeString(from: $0) }
     }
 
+    var trainTypeText: String {
+        normalizedText(trainMessage?.trainType) ?? "Ukjent"
+    }
+
+    var operatorText: String {
+        normalizedText(trainMessage?.company)
+            ?? normalizedText(trainMessage?.trainPosition?.toc)
+            ?? normalizedText(trainMessage?.trainPosition?.geoJson.properties.operatorRef)
+            ?? "Ukjent"
+    }
+
+    var trainNumberText: String {
+        normalizedText(trainMessage?.trainNo)
+            ?? normalizedText(trainMessage?.advertisementTrainNo)
+            ?? "-"
+    }
+
+    var stopCount: Int {
+        stationMessages.filter { isStopActivity($0) }.count
+    }
+
+    var passingCount: Int {
+        stationMessages.filter { isPassingActivity($0) }.count
+    }
+
     var currentRouteIndex: Int {
         latestPastRouteIndex ?? 0
     }
@@ -549,6 +615,11 @@ private final class TrainRouteViewModel {
         }
 
         return "via " + stationNames.joined(separator: " · ")
+    }
+
+    private func isPassingActivity(_ stationMessage: StationMessage) -> Bool {
+        stationMessage.activity.trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedCaseInsensitiveCompare("P") == .orderedSame
     }
 
     private func selectedViaStationMessages() -> [StationMessage] {
