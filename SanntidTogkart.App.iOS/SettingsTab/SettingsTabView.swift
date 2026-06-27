@@ -22,6 +22,8 @@ struct SettingsTabView: View {
                 VStack(spacing: 18) {
                     profileCard
                     accountCard
+                    routesShortcutCard
+                    stationsShortcutCard
                     appearanceCard
                     startupTabCard
                     environmentCard
@@ -36,7 +38,7 @@ struct SettingsTabView: View {
                 .appReadableContentWidth()
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("Profil")
+            .navigationTitle("Mer")
         }
         .alert("Bytte miljø?", isPresented: $isShowingEnvironmentChangeConfirmation) {
             Button("Avbryt", role: .cancel) {
@@ -62,6 +64,71 @@ struct SettingsTabView: View {
         } message: {
             Text("Bytte av miljø kan kreve ny innlogging før sanntidsdata fungerer igjen. Vil du fortsette?")
         }
+    }
+
+    private var routesShortcutCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Ruter", systemImage: "arrow.triangle.swap")
+                .font(.headline)
+
+            Text("Åpne rutelisten fra Profil.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            NavigationLink {
+                RoutesTabView()
+            } label: {
+                navigationShortcutRow(title: "Gå til Ruter", systemImage: "arrow.triangle.swap")
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var stationsShortcutCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Stasjoner", systemImage: "mappin.circle")
+                .font(.headline)
+
+            Text("Åpne stasjonslisten fra Profil.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            NavigationLink {
+                StationsTabView()
+            } label: {
+                navigationShortcutRow(title: "Gå til Stasjoner", systemImage: "mappin.circle")
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func navigationShortcutRow(title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 28, height: 28)
+                .background(Color.accentColor.opacity(0.12), in: Circle())
+
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
@@ -153,6 +220,8 @@ struct SettingsTabView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

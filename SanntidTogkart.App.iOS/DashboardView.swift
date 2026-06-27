@@ -9,6 +9,12 @@ struct DashboardView: View {
 
     var body: some View {
         TabView(selection: selectedTabBinding) {
+            TrainsTabView()
+            .tag(DashboardTab.trains)
+            .tabItem {
+                tabItemLabel("NÅ", systemImage: "clock")
+            }
+
             TrainMapTabView()
             .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .tabBar)
             .tag(DashboardTab.map)
@@ -21,28 +27,10 @@ struct DashboardView: View {
                 .environment(\.symbolVariants, .none)
             }
 
-            RoutesTabView()
-            .tag(DashboardTab.routes)
-            .tabItem {
-                tabItemLabel("Ruter", systemImage: "arrow.triangle.swap")
-            }
-
-            TrainsTabView()
-            .tag(DashboardTab.trains)
-            .tabItem {
-                tabItemLabel("NÅ", systemImage: "clock")
-            }
-
-            StationsTabView()
-            .tag(DashboardTab.stations)
-            .tabItem {
-                tabItemLabel("Stasjoner", systemImage: "mappin.circle")
-            }
-
             SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)
             .tag(DashboardTab.settings)
             .tabItem {
-                tabItemLabel("Profil", systemImage: "person")
+                tabItemLabel("Mer", systemImage: "ellipsis.circle")
             }
         }
     }
