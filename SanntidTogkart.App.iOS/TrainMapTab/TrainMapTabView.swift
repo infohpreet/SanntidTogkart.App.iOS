@@ -164,6 +164,10 @@ struct TrainMapTabView: View {
                         CollapsedSelectedTrainCard(
                             train: selectedTrain,
                             routeText: viewModel.displayRoute(for: selectedTrain),
+                            onOpenRoute: {
+                                trainForStationsView = selectedTrain
+                                isTrainStationsViewPresented = true
+                            },
                             onExpand: {
                                 isSelectedTrainCardVisible = true
                             },
@@ -1989,52 +1993,79 @@ private struct SelectedTrainCard: View {
 private struct CollapsedSelectedTrainCard: View {
     let train: TrainMessage
     let routeText: String
+    let onOpenRoute: () -> Void
     let onExpand: () -> Void
     let onClear: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button(action: onExpand) {
-                HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                HStack(spacing: 8) {
                     TrainCountryFlagBadge(countryCode: train.countryCode)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(displayLineNumber(for: train) ?? displayTrainNumber(for: train))
-                            .font(.subheadline.monospacedDigit().weight(.bold))
-                            .foregroundStyle(.primary)
+                    let lineNumber = displayLineNumber(for: train)
 
-                        Text(routeText)
-                            .font(.caption)
+                    Text(lineNumber ?? displayTrainNumber(for: train))
+                        .font(.headline.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.primary)
+
+                    if lineNumber != nil {
+                        Text("•")
+                            .font(.caption.weight(.bold))
                             .foregroundStyle(.secondary)
+
+                        Text(displayTrainNumber(for: train))
+                            .font(.headline.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Utvid valgt tog")
 
-            HStack(spacing: 8) {
-                Button(action: onExpand) {
-                    Image(systemName: "chevron.down")
+                Spacer(minLength: 8)
+
+                HStack(spacing: 8) {
+                    Button(action: onOpenRoute) {
+                        Image(systemName: "arrow.triangle.swap")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.secondary)
                         .frame(width: 28, height: 28)
                         .background(Color.black.opacity(0.05), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Utvid valgt tog")
+                    .accessibilityLabel("Åpne togrute")
 
-                Button(action: onClear) {
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .background(Color.black.opacity(0.05), in: Circle())
+                    Button(action: onExpand) {
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.black.opacity(0.05), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Utvid valgt tog")
+
+                    Button(action: onClear) {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(Color.black.opacity(0.05), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fjern valgt tog")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Fjern valgt tog")
             }
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(routeText)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(14)
         .frame(maxWidth: 430, alignment: .leading)
