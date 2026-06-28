@@ -446,6 +446,7 @@ private enum TrainListBoardStyle {
 @MainActor
 @Observable
 private final class TrainListViewModel {
+    private let maxUpcomingMessages = 100
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
     private var stations: [TraseStation] = []
@@ -461,19 +462,21 @@ private final class TrainListViewModel {
     }
 
     var departureMessages: [StationMessage] {
-        stationMessages
+        Array(stationMessages
             .filter { isVisible($0, tab: .departures) }
             .sorted { lhs, rhs in
                 compare(lhs: lhs, rhs: rhs, tab: .departures)
             }
+            .prefix(maxUpcomingMessages))
     }
 
     var arrivalMessages: [StationMessage] {
-        stationMessages
+        Array(stationMessages
             .filter { isVisible($0, tab: .arrivals) }
             .sorted { lhs, rhs in
                 compare(lhs: lhs, rhs: rhs, tab: .arrivals)
             }
+            .prefix(maxUpcomingMessages))
     }
 
     private func configureBindings() {
