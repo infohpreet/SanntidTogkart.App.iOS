@@ -1,3 +1,4 @@
+import Combine
 import CoreLocation
 import Observation
 import SwiftUI
@@ -5,12 +6,16 @@ import SwiftUI
 struct HomeTabView: View {
     @State private var favoritesStore = TrainStationFavoritesStore.shared
     @State private var lastUsedStore = TrainStationLastUsedStore.shared
+    @State private var navigationCenter = AppNavigationCenter.shared
     @State private var isTrainListPresented = false
     @State private var isTrainRoutePresented = false
     @State private var selectedStation: TraseStation?
     @State private var selectedStationMessage: StationMessage?
     @State private var selectedTrainMessage: TrainMessage?
+    @State private var minuteRefreshDate = AppTime.now
     @State private var viewModel = HomeTabViewModel()
+
+    private let minuteRefreshTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     var body: some View {
         NavigationStack {
@@ -62,6 +67,22 @@ struct HomeTabView: View {
         .task {
             await viewModel.start()
         }
+        .onReceive(minuteRefreshTimer) { _ in
+            guard navigationCenter.selectedDashboardTab == .home else {
+                return
+            }
+
+            minuteRefreshDate = AppTime.now
+            viewModel.refreshNearestStation()
+        }
+        .onChange(of: navigationCenter.selectedDashboardTab) { _, selectedTab in
+            guard selectedTab == .home else {
+                return
+            }
+
+            minuteRefreshDate = AppTime.now
+            viewModel.refreshNearestStation()
+        }
         .onChange(of: favoritesStore.stations.map(\.storageKey)) { _, _ in
             viewModel.refreshNearestStation()
         }
@@ -99,6 +120,7 @@ struct HomeTabView: View {
                 station: station,
                 distanceText: viewModel.distanceText(for: station),
                 knownStations: viewModel.stations,
+                refreshDate: minuteRefreshDate,
                 onSelectStation: {
                     selectStation(station)
                 },
@@ -134,6 +156,7 @@ struct HomeTabView: View {
             station: station,
             distanceText: viewModel.distanceText(for: station),
             knownStations: viewModel.stations,
+            refreshDate: minuteRefreshDate,
             onSelectStation: {
                 selectStation(station)
             },
@@ -270,6 +293,7 @@ private struct HomeFavoriteStationBoard: View {
     let station: TraseStation
     let distanceText: String?
     let knownStations: [TraseStation]
+    let refreshDate: Date
     let onSelectStation: () -> Void
     let onSelectTrain: (StationMessage, TrainMessage?) -> Void
 
@@ -315,6 +339,11 @@ private struct HomeFavoriteStationBoard: View {
         }
         .task(id: station.storageKey) {
             await viewModel.start(for: station)
+        }
+        .onChange(of: refreshDate) { _, _ in
+            Task {
+                await viewModel.refreshForActiveMinute()
+            }
         }
     }
 
@@ -644,6 +673,21 @@ private final class HomeFavoriteStationBoardViewModel {
         await loadStationMessages(for: station)
     }
 
+    func refreshForActiveMinute() async {
+        guard hasStarted,
+              let requestedCountryCode,
+              let requestedStationShortName else {
+            return
+        }
+
+        await service.requestStationMessages(
+            countryCode: requestedCountryCode,
+            stationShortName: requestedStationShortName,
+            originDate: AppTime.localDateString()
+        )
+        requestTrainDetailsForVisibleCards()
+    }
+
     func trainDisplayText(for stationMessage: StationMessage) -> String {
         normalizedText(trainDetail(for: stationMessage)?.lineNumber)
             ?? normalizedText(stationMessage.trainNo)
@@ -701,8 +745,8 @@ private final class HomeFavoriteStationBoardViewModel {
         }
 
         requestedStationKey = station.storageKey
-        requestedStationShortName = station.shortName.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        requestedCountryCode = station.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        requestedStationShortName = station.shortName.trimmingCharacters(in: .whitespacesAndNewlines)
+        requestedCountryCode = station.countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]
@@ -730,8 +774,8 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        return requestedCountryCode == firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            && requestedStationShortName == firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return requestedCountryCode.uppercased() == firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            && requestedStationShortName.uppercased() == firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 
     private func requestTrainDetailsForVisibleCards() {
@@ -776,7 +820,10 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        return scheduledTime >= AppTime.now.addingTimeInterval(-5 * 60)
+        let now = AppTime.now
+        let minuteStart = Calendar.autoupdatingCurrent.dateInterval(of: .minute, for: now)?.start ?? now
+        let nextMinuteStart = Calendar.autoupdatingCurrent.date(byAdding: .minute, value: 1, to: minuteStart) ?? now.addingTimeInterval(60)
+        return scheduledTime >= nextMinuteStart
     }
 
     private func departureSortDate(for stationMessage: StationMessage) -> Date? {
