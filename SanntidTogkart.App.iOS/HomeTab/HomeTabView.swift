@@ -612,7 +612,7 @@ private final class HomeFavoriteStationBoardViewModel {
             }
 
             self.stationMessages = stationMessages
-            self.requestTrainDetails(for: stationMessages)
+            self.requestTrainDetailsForVisibleCards()
             self.errorMessage = nil
             self.isLoading = false
         }
@@ -734,8 +734,12 @@ private final class HomeFavoriteStationBoardViewModel {
             && requestedStationShortName == firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 
-    private func requestTrainDetails(for stationMessages: [StationMessage]) {
-        for stationMessage in stationMessages.prefix(3) {
+    private func requestTrainDetailsForVisibleCards() {
+        for stationMessage in departureMessages.prefix(3) {
+            guard trainDetail(for: stationMessage) == nil else {
+                continue
+            }
+
             Task {
                 await service.requestTrainMessage(
                     countryCode: stationMessage.countryCode,
