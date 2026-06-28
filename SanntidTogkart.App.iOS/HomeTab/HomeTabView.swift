@@ -15,7 +15,7 @@ struct HomeTabView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if favoritesStore.stations.isEmpty {
+                if !hasHomeContent {
                     ContentUnavailableView(
                         "Ingen favoritter",
                         systemImage: "star",
@@ -25,7 +25,9 @@ struct HomeTabView: View {
                 } else {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 18) {
-                            favoriteSection
+                            if !favoritesStore.stations.isEmpty {
+                                favoriteSection
+                            }
 
                             if let nearestStation = viewModel.nearestStation {
                                 nearestSection(nearestStation)
@@ -63,6 +65,10 @@ struct HomeTabView: View {
         .onChange(of: favoritesStore.stations.map(\.storageKey)) { _, _ in
             viewModel.refreshNearestStation()
         }
+    }
+
+    private var hasHomeContent: Bool {
+        !favoritesStore.stations.isEmpty || viewModel.nearestStation != nil
     }
 
     private var tabGreetingTitle: String {

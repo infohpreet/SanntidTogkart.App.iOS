@@ -22,12 +22,6 @@ struct DashboardView: View {
                 }
             }
 
-            TrainsTabView()
-            .tag(DashboardTab.trains)
-            .tabItem {
-                tabItemLabel("Søk", systemImage: "magnifyingglass")
-            }
-
             TrainMapTabView()
             .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .tabBar)
             .tag(DashboardTab.map)
@@ -38,6 +32,12 @@ struct DashboardView: View {
                 }
                 .foregroundColor(colorScheme == .dark ? .white : .black)
                 .environment(\.symbolVariants, .none)
+            }
+
+            TrainsTabView()
+            .tag(DashboardTab.trains)
+            .tabItem {
+                tabItemLabel("Søk", systemImage: "magnifyingglass")
             }
 
             SettingsTabView(user: user, authSession: authSession, onLogout: onLogout)
