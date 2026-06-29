@@ -450,7 +450,7 @@ private enum TrainListBoardStyle {
 @MainActor
 @Observable
 private final class TrainListViewModel {
-    private let maxUpcomingMessages = 100
+    private let maxUpcomingMessages = 20
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
     private var stations: [TraseStation] = []
@@ -498,7 +498,7 @@ private final class TrainListViewModel {
             }
 
             self.stationMessages = stationMessages
-            self.requestTrainDetails(for: stationMessages)
+            self.requestTrainDetailsForInitialView(for: stationMessages)
             self.errorMessage = nil
             self.isLoading = false
         }
@@ -508,7 +508,10 @@ private final class TrainListViewModel {
                 return
             }
 
-            self.trainMessagesByKey[self.trainMessageKey(for: trainMessage)] = trainMessage
+            let key = self.trainMessageKey(for: trainMessage)
+            var updated = self.trainMessagesByKey
+            updated[key] = trainMessage
+            self.trainMessagesByKey = updated
         }
 
         service.onError = { [weak self] message in
@@ -634,9 +637,21 @@ private final class TrainListViewModel {
         )
     }
 
-    private func requestTrainDetails(for stationMessages: [StationMessage]) {
-        for stationMessage in stationMessages {
-            Task {
+    private func requestTrainDetailsForInitialView(for stationMessages: [StationMessage]) {
+        let prioritizedMessages = prioritizedMessagesForInitialView(from: stationMessages)
+        let prioritizedKeys = Set(prioritizedMessages.map(trainMessageKey(for:)))
+        let remainingMessages = stationMessages.filter { !prioritizedKeys.contains(trainMessageKey(for: $0)) }
+
+        Task {
+            for stationMessage in prioritizedMessages {
+                await service.requestTrainMessage(
+                    countryCode: stationMessage.countryCode,
+                    trainNo: stationMessage.trainNo,
+                    originDate: stationMessage.originDate
+                )
+            }
+
+            for stationMessage in remainingMessages {
                 await service.requestTrainMessage(
                     countryCode: stationMessage.countryCode,
                     trainNo: stationMessage.trainNo,
@@ -644,6 +659,30 @@ private final class TrainListViewModel {
                 )
             }
         }
+    }
+
+    private func prioritizedMessagesForInitialView(from stationMessages: [StationMessage]) -> [StationMessage] {
+        let prioritizedDepartures = Array(stationMessages
+            .filter { isVisible($0, tab: .departures) }
+            .sorted { lhs, rhs in compare(lhs: lhs, rhs: rhs, tab: .departures) }
+            .prefix(maxUpcomingMessages))
+
+        let prioritizedArrivals = Array(stationMessages
+            .filter { isVisible($0, tab: .arrivals) }
+            .sorted { lhs, rhs in compare(lhs: lhs, rhs: rhs, tab: .arrivals) }
+            .prefix(maxUpcomingMessages))
+
+        var seenKeys: Set<String> = []
+        var prioritized: [StationMessage] = []
+
+        for stationMessage in prioritizedDepartures + prioritizedArrivals {
+            let key = trainMessageKey(for: stationMessage)
+            if seenKeys.insert(key).inserted {
+                prioritized.append(stationMessage)
+            }
+        }
+
+        return prioritized
     }
 
     func trainDetail(for stationMessage: StationMessage) -> TrainMessage? {
@@ -664,6 +703,14 @@ private final class TrainListViewModel {
 
     private func trainMessageKey(countryCode: String, trainNo: String, originDate: String) -> String {
         "\(countryCode)-\(trainNo)-\(originDate)"
+    }
+
+    private func trainMessageKey(for stationMessage: StationMessage) -> String {
+        trainMessageKey(
+            countryCode: stationMessage.countryCode,
+            trainNo: stationMessage.trainNo,
+            originDate: stationMessage.originDate
+        )
     }
 
     private func isVisible(_ stationMessage: StationMessage, tab: TrainListTab) -> Bool {

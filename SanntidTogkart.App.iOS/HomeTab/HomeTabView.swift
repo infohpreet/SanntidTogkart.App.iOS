@@ -655,7 +655,10 @@ private final class HomeFavoriteStationBoardViewModel {
                 return
             }
 
-            self.trainMessagesByKey[self.trainMessageKey(for: trainMessage)] = trainMessage
+            let key = self.trainMessageKey(for: trainMessage)
+            var updated = self.trainMessagesByKey
+            updated[key] = trainMessage
+            self.trainMessagesByKey = updated
         }
 
         service.onError = { [weak self] message in
