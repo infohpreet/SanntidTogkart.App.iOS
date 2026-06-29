@@ -1263,7 +1263,8 @@ private let trainMessageStationCodeMappings: [String: String] = [
     "LOD": "OSL",
     "SUD": "DRM",
     "KVB": "STV",
-    "BES": "SKØ"
+    "BES": "SKØ",
+    "JAH": "JAR"
 ]
 
 private struct FeedHubSignalRConfiguration {
