@@ -481,7 +481,11 @@ struct TrainMapTabView: View {
     private var stationAnnotationContent: some MapContent {
         if showsStationMarkers && !isTrainListPresented {
             ForEach(renderedStations) { station in
-                Annotation(showsStationMarkerLabels ? stationAnnotationTitle(for: station) : "", coordinate: station.coordinate) {
+                Annotation(
+                    showsStationMarkerLabels ? stationAnnotationTitle(for: station) : "",
+                    coordinate: station.coordinate,
+                    anchor: .bottom
+                ) {
                     Button {
                         toggleSelection(for: station)
                     } label: {
@@ -494,6 +498,7 @@ struct TrainMapTabView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .offset(y: showsStationMarkerLabels ? 3 : 0)
                     .zIndex(1)
                 }
             }
