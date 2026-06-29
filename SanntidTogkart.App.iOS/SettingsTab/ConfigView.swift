@@ -42,16 +42,13 @@ struct ConfigView: View {
                 Task {
                     isSwitchingEnvironment = true
                     await SignalRService.switchEnvironment(to: pendingEnvironment)
-                    authSession.resetForEnvironmentChange(
-                        message: "Miljøet ble byttet. Logg inn på nytt for å hente tilgang til det nye miljøet."
-                    )
                     self.pendingEnvironment = nil
                     selectedEnvironment = AuthConfig.currentEnvironment
                     isSwitchingEnvironment = false
                 }
             }
         } message: {
-            Text("Bytte av miljø kan kreve ny innlogging før sanntidsdata fungerer igjen. Vil du fortsette?")
+            Text("Bytte av miljø oppdaterer SignalR-forbindelsen. Vil du fortsette?")
         }
     }
 
@@ -102,7 +99,7 @@ struct ConfigView: View {
             Label("Miljø", systemImage: "network")
                 .font(.headline)
 
-            Text("Bytt SignalR- og Entra-konfigurasjon. Ny innlogging kan være nødvendig etter miljøbytte.")
+            Text("Bytt miljø for SignalR-data. Endringen gjelder umiddelbart.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

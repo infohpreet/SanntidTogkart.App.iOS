@@ -353,7 +353,7 @@ final class SignalRService {
         connectionCenter.update(state: .connecting)
         onStateChange?(.connecting)
 
-        let accessToken = try await AuthSession.validAccessToken()
+        let accessToken = try await fetchSignalRAccessToken()
         let negotiation = try await negotiate(accessToken: accessToken)
         let connectionID = negotiation.connectionToken ?? negotiation.connectionId
 
@@ -374,6 +374,37 @@ final class SignalRService {
         try await sendGetTrainMetrics(on: webSocketTask)
         try await flushPendingRequests(on: webSocketTask)
         try await receiveLoop(on: webSocketTask)
+    }
+
+    private func fetchSignalRAccessToken() async throws -> String {
+        var request = URLRequest(url: AuthConfig.signalREntraTokenURL)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = formURLEncodedBody([
+            "client_id": AuthConfig.azureClientID,
+            "client_secret": AuthConfig.azureClientSecret,
+            "grant_type": "client_credentials",
+            "scope": AuthConfig.signalRClientCredentialScope
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validateHTTPResponse(response, data: data)
+
+        let tokenResponse = try decoder.decode(SignalRClientCredentialsTokenResponse.self, from: data)
+        guard !tokenResponse.accessToken.isEmpty else {
+            throw SignalRServiceError.missingAccessToken
+        }
+
+        return tokenResponse.accessToken
+    }
+
+    private func formURLEncodedBody(_ values: [String: String]) -> Data? {
+        var components = URLComponents()
+        components.queryItems = values.map { key, value in
+            URLQueryItem(name: key, value: value)
+        }
+
+        return components.percentEncodedQuery?.data(using: .utf8)
     }
 
     private func negotiate(accessToken: String) async throws -> SignalRNegotiationResponse {
@@ -1208,6 +1239,14 @@ private struct FeedHubSignalRConfiguration {
 private struct SignalRNegotiationResponse: Decodable {
     let connectionId: String?
     let connectionToken: String?
+}
+
+private struct SignalRClientCredentialsTokenResponse: Decodable {
+    let accessToken: String
+
+    private enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+    }
 }
 
 private struct SignalRInvocationMessage: Encodable {

@@ -81,7 +81,7 @@ final class AuthService: NSObject {
         nonce: String,
         codeChallenge: String
     ) throws -> URL {
-        let config = AuthConfig.current
+        let config = AuthConfig.loginCurrent
 
         guard var components = URLComponents(url: config.entraAuthorizeURL, resolvingAgainstBaseURL: false) else {
             throw EntraIDAuthError.invalidAuthorizationURL
@@ -166,7 +166,7 @@ final class AuthService: NSObject {
         authorizationCode: String,
         codeVerifier: String
     ) async throws -> EntraTokenResponse {
-        let config = AuthConfig.current
+        let config = AuthConfig.loginCurrent
         var request = URLRequest(url: config.entraTokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -189,7 +189,7 @@ final class AuthService: NSObject {
         refreshToken: String,
         scopes: [String]
     ) async throws -> EntraTokenResponse {
-        let config = AuthConfig.current
+        let config = AuthConfig.loginCurrent
         var request = URLRequest(url: config.entraTokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")

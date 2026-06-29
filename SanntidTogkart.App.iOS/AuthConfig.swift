@@ -11,16 +11,28 @@ enum AuthConfig {
         }
     }
 
-    static var current: EnvironmentConfiguration {
-        currentEnvironment.configuration
+    static var signalRCurrent: EnvironmentConfiguration {
+        currentEnvironment.signalRConfiguration
     }
 
-    static var hubURL: URL { current.hubURL }
-    static var azureClientID: String { current.azureClientID }
-    static var azureTenantID: String { current.azureTenantID }
-    static var azureClientSecret: String { current.azureClientSecret }
-    static var entraAuthorizeURL: URL { current.entraAuthorizeURL }
-    static var entraTokenURL: URL { current.entraTokenURL }
+    static var loginCurrent: LoginConfiguration {
+        LoginConfiguration(secrets: AuthLoginSecrets.current.authLogin)
+    }
+
+    static var hubURL: URL { signalRCurrent.hubURL }
+    static var azureClientID: String { signalRCurrent.azureClientID }
+    static var azureTenantID: String { signalRCurrent.azureTenantID }
+    static var azureClientSecret: String { signalRCurrent.azureClientSecret }
+
+    static var ssoAzureClientID: String { loginCurrent.azureClientID }
+    static var ssoAzureTenantID: String { loginCurrent.azureTenantID }
+    static var ssoAzureClientSecret: String { loginCurrent.azureClientSecret }
+    static var ssoEntraAuthorizeURL: URL { loginCurrent.entraAuthorizeURL }
+    static var ssoEntraTokenURL: URL { loginCurrent.entraTokenURL }
+
+    static var signalREntraTokenURL: URL { signalRCurrent.entraTokenURL }
+    static var signalRClientCredentialScope: String { "api://\(azureClientID)/.default" }
+
     static let ssoCallbackScheme = "sanntidtogkart"
     static let ssoRedirectURI = "\(ssoCallbackScheme)://auth"
     static var ssoScopes: [String] {
@@ -29,7 +41,7 @@ enum AuthConfig {
             "profile",
             "email",
             "offline_access",
-            "api://\(azureClientID)/access_as_user"
+            "api://\(ssoAzureClientID)/access_as_user"
         ]
     }
 
@@ -56,19 +68,19 @@ enum AppEnvironment: String, CaseIterable, Identifiable {
         }
     }
 
-    var configuration: EnvironmentConfiguration {
+    var signalRConfiguration: EnvironmentConfiguration {
         switch self {
         case .staging:
             return EnvironmentConfiguration(
-                secrets: AppSecrets.current.staging
+                secrets: AuthSignalRSecrets.current.staging
             )
         case .training:
             return EnvironmentConfiguration(
-                secrets: AppSecrets.current.training
+                secrets: AuthSignalRSecrets.current.training
             )
         case .prod:
             return EnvironmentConfiguration(
-                secrets: AppSecrets.current.prod
+                secrets: AuthSignalRSecrets.current.prod
             )
         }
     }
@@ -82,6 +94,26 @@ struct EnvironmentConfiguration {
 
     init(secrets: EnvironmentSecrets) {
         self.hubURL = secrets.hubURL
+        self.azureClientID = secrets.azureClientID
+        self.azureTenantID = secrets.azureTenantID
+        self.azureClientSecret = secrets.azureClientSecret
+    }
+
+    var entraAuthorizeURL: URL {
+        URL(string: "https://login.microsoftonline.com/\(azureTenantID)/oauth2/v2.0/authorize")!
+    }
+
+    var entraTokenURL: URL {
+        URL(string: "https://login.microsoftonline.com/\(azureTenantID)/oauth2/v2.0/token")!
+    }
+}
+
+struct LoginConfiguration {
+    let azureClientID: String
+    let azureTenantID: String
+    let azureClientSecret: String
+
+    init(secrets: EnvironmentSecrets) {
         self.azureClientID = secrets.azureClientID
         self.azureTenantID = secrets.azureTenantID
         self.azureClientSecret = secrets.azureClientSecret
