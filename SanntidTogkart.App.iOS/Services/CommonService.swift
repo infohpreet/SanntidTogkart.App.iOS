@@ -7,7 +7,7 @@ enum CommonService {
             .uppercased()
 
         switch normalizedType {
-        case "GT", "SPFG", "CN", "HR", "GC", "MTAB", "ONRAIL":
+        case "ONR", "MTAB", "GAG", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "TM", "HR", "PT":
             return true
         default:
             return false
