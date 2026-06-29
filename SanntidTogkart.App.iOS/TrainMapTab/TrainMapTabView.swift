@@ -79,7 +79,7 @@ struct TrainMapTabView: View {
                 let span = context.region.span
                 visibleRegion = region
                 currentMapSpan = span
-                isZoomedOut = span.latitudeDelta > 1.6 || span.longitudeDelta > 1.6
+                isZoomedOut = span.latitudeDelta > 0.7 || span.longitudeDelta > 0.7
                 isCountryZoomedOut = span.latitudeDelta > 8.5 || span.longitudeDelta > 8.5
             }
             .onChange(of: locationManager.currentLocation) { _, newValue in
@@ -1691,15 +1691,21 @@ private extension TraseStation {
 }
 
 private struct StationMapDotAnnotation: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Circle()
-            .fill(Color(.darkGray))
-            .frame(width: 6, height: 6)
+            .fill(iconColor)
+            .frame(width: 7, height: 7)
             .overlay {
                 Circle()
-                    .stroke(Color.white.opacity(0.9), lineWidth: 2)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.75 : 0.95), lineWidth: 1.5)
             }
-            .shadow(color: Color.black.opacity(0.18), radius: 3, y: 1)
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.20), radius: 2, y: 1)
+    }
+
+    private var iconColor: Color {
+        colorScheme == .dark ? .primary : .secondary
     }
 }
 
@@ -1771,23 +1777,14 @@ private struct StationMapAnnotation: View {
     let isHighlighted: Bool
 
     var body: some View {
-        Image(systemName: "tram.fill.tunnel")
-            .font(isHighlighted ? .caption2.bold() : .system(size: 8, weight: .bold))
+        Image(systemName: "tram.fill")
+            .font(isHighlighted ? .subheadline.weight(.bold) : .caption.weight(.bold))
             .foregroundStyle(iconColor)
-            .padding(.horizontal, isHighlighted ? 6 : 5)
-            .padding(.vertical, isHighlighted ? 4 : 3)
-            .background(
-                backgroundColor,
-                in: Circle()
-            )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.52 : 0.24), radius: isHighlighted ? 3 : 2, y: 1)
     }
 
     private var iconColor: Color {
-        colorScheme == .dark ? Color(.darkGray) : .white
-    }
-
-    private var backgroundColor: Color {
-        colorScheme == .dark ? .white : Color(.darkGray)
+        colorScheme == .dark ? .primary : .secondary
     }
 }
 
