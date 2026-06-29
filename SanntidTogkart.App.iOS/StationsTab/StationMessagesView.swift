@@ -117,10 +117,7 @@ struct StationMessagesView: View {
         let trainDetail = viewModel.trainDetail(for: stationMessage)
         if let trainDetail {
             NavigationLink {
-                TrainStationsView(
-                    trainMessage: trainDetail,
-                    title: "Togrute"
-                )
+                TrainRouteView(trainMessage: trainDetail)
             } label: {
                 stationMessageCard(stationMessage, trainDetail: trainDetail)
             }

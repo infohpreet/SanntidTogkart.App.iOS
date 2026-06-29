@@ -23,32 +23,20 @@ struct RoutesTabView: View {
                         description: Text(
                             viewModel.searchText.isEmpty
                             ? "Ingen meldinger ble returnert for dagens dato."
-                            : "Ingen togmeldinger matcher søket ditt."
+                            : "Ingen togmeldinger matcher soket ditt."
                         )
                     )
                 } else {
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            summaryCard
-                                .padding(.bottom, 14)
-
-                            ForEach(Array(viewModel.filteredMessages.enumerated()), id: \.element.id) { index, message in
-                                NavigationLink {
-                                    TrainStationsView(
-                                        trainMessage: message.trainMessage,
-                                        title: "Togrute"
-                                    )
-                                } label: {
-                                    routeRow(message, showsSeparator: index < viewModel.filteredMessages.count - 1)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                        LazyVStack(alignment: .leading, spacing: 16) {
+                            routeMessagesBoard
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 3)
-                        .padding(.bottom, 12)
+                        .padding(.top, 12)
+                        .padding(.bottom, 16)
                         .appReadableContentWidth()
                     }
+                    .scrollIndicators(.hidden)
                     .refreshable {
                         await viewModel.refresh()
                     }
@@ -56,7 +44,7 @@ struct RoutesTabView: View {
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("Ruter")
-            .searchable(text: $searchText, prompt: "Søk etter tog eller rute")
+            .searchable(text: $searchText, prompt: "Sok etter tog eller rute")
         }
         .task {
             await viewModel.start()
@@ -66,127 +54,104 @@ struct RoutesTabView: View {
         }
     }
 
-    private var summaryCard: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Togruteoversikt")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
+    private var routeMessagesBoard: some View {
+        let messages = viewModel.filteredMessages
 
-                Text("Oppdatert oversikt over togmeldinger for i dag")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        return LazyVStack(spacing: 0) {
+            boardHeader
+
+            ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                NavigationLink {
+                    TrainRouteView(trainMessage: message.trainMessage)
+                } label: {
+                    routeRow(message)
+                }
+                .buttonStyle(.plain)
+
+                if index < messages.count - 1 {
+                    Rectangle()
+                        .fill(RoutesBoardStyle.divider)
+                        .frame(height: 1)
+                        .padding(.horizontal, 18)
+                }
             }
+        }
+        .background(RoutesBoardStyle.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
 
-            Spacer(minLength: 12)
+    private var boardHeader: some View {
+        VStack(spacing: 10) {
+            Rectangle()
+                .fill(RoutesBoardStyle.divider)
+                .frame(height: 1)
 
-            VStack(alignment: .trailing, spacing: 3) {
-                Text("\(viewModel.filteredMessages.count)")
-                    .font(.title3.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.primary)
+            HStack(spacing: 10) {
+                Text("Avgang")
+                    .frame(width: 56, alignment: .leading)
 
-                Text("treff")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Color.clear
+                    .frame(width: 58, height: 1)
+
+                Text("Tog fra")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("Tog til")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(RoutesBoardStyle.mutedText)
+            .padding(.horizontal, 18)
+        }
+        .padding(.bottom, 6)
+    }
+
+    private func routeRow(_ message: RouteMessage) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Text(message.originTimeText ?? "--:--")
+                .font(.subheadline.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.primary)
+                .frame(width: 56, alignment: .leading)
+
+            routeBadge(for: message)
+
+            Text(message.origin ?? "Ukjent")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(message.destination ?? "Ukjent")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(AppTheme.surface)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(AppTheme.border, lineWidth: 1)
-        }
-        .shadow(color: Color.black.opacity(0.04), radius: 10, y: 4)
-    }
-
-    private func routeRow(_ message: RouteMessage, showsSeparator: Bool) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            routeCountryFlagBadge(for: message)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(message.routeNumberText)
-                        .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.primary)
-
-                    Spacer(minLength: 8)
-
-                    if let originTimeText = message.originTimeText {
-                        Text(originTimeText)
-                            .font(.subheadline.bold().monospacedDigit())
-                            .foregroundStyle(.primary)
-                    }
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(message.origin ?? "Ukjent")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    Text("→")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.secondary)
-
-                    Text(message.destination ?? "Ukjent")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(message.metadataLine)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    if !message.originDate.isEmpty {
-                        Text(message.originDate)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .overlay(alignment: .bottomLeading) {
-            if showsSeparator {
-                Rectangle()
-                    .fill(AppTheme.border)
-                    .frame(height: 1)
-                    .padding(.leading, 56)
-            }
-        }
     }
 
-    @ViewBuilder
-    private func routeCountryFlagBadge(for message: RouteMessage) -> some View {
-        switch message.countryCode.uppercased() {
-        case "NO":
-            RouteNorwayFlagBadge()
-        case "SE":
-            RouteSwedenFlagBadge()
-        default:
-            Image(systemName: "tram.fill")
-                .font(.headline)
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 42, height: 28)
-                .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 12))
-        }
+    private func routeBadge(for message: RouteMessage) -> some View {
+        let isFreightTrain = CommonService.isFreightTrainCompany(message.company)
+
+        return Text(message.routeNumberText)
+            .font(.subheadline.monospacedDigit().weight(.bold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: 58, height: 26)
+            .background(
+                isFreightTrain ? RoutesBoardStyle.freightGreen : RoutesBoardStyle.trainRed,
+                in: RoundedRectangle(cornerRadius: 1)
+            )
     }
 }
 
@@ -194,10 +159,6 @@ private extension RouteMessage {
     var routeNumberText: String {
         let normalizedLineNumber = lineNumber?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let normalizedTrainNo = trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if !normalizedLineNumber.isEmpty && !normalizedTrainNo.isEmpty {
-            return "\(normalizedLineNumber).\(normalizedTrainNo)"
-        }
 
         if !normalizedLineNumber.isEmpty {
             return normalizedLineNumber
@@ -217,67 +178,12 @@ private extension RouteMessage {
 
         return AppTime.localTimeString(from: originTime)
     }
-
-    var metadataLine: String {
-        var parts: [String] = []
-
-        if let trainType, !trainType.isEmpty {
-            parts.append(trainType)
-        }
-
-        if let company, !company.isEmpty {
-            parts.append(company)
-        }
-
-        return parts.joined(separator: " • ")
-    }
 }
 
-private struct RouteNorwayFlagBadge: View {
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(Color(red: 0.73, green: 0.11, blue: 0.17))
-
-            Rectangle()
-                .fill(.white)
-                .frame(width: 7)
-                .offset(x: -7)
-
-            Rectangle()
-                .fill(.white)
-                .frame(height: 7)
-
-            Rectangle()
-                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
-                .frame(width: 4)
-                .offset(x: -7)
-
-            Rectangle()
-                .fill(Color(red: 0.0, green: 0.13, blue: 0.36))
-                .frame(height: 4)
-        }
-        .frame(width: 42, height: 28)
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
-}
-
-private struct RouteSwedenFlagBadge: View {
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(Color(red: 0.0, green: 0.32, blue: 0.61))
-
-            Rectangle()
-                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
-                .frame(width: 6)
-                .offset(x: -7)
-
-            Rectangle()
-                .fill(Color(red: 0.98, green: 0.80, blue: 0.17))
-                .frame(height: 6)
-        }
-        .frame(width: 42, height: 28)
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
+private enum RoutesBoardStyle {
+    static let background = AppTheme.surface
+    static let divider = AppTheme.border
+    static let mutedText = Color.secondary
+    static let freightGreen = Color(red: 0.17, green: 0.52, blue: 0.29)
+    static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
 }
