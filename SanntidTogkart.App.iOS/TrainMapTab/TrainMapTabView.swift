@@ -80,7 +80,7 @@ struct TrainMapTabView: View {
                 visibleRegion = region
                 currentMapSpan = span
                 isZoomedOut = span.latitudeDelta > 0.7 || span.longitudeDelta > 0.7
-                isCountryZoomedOut = span.latitudeDelta > 8.5 || span.longitudeDelta > 8.5
+                isCountryZoomedOut = span.latitudeDelta > 2.0 || span.longitudeDelta > 7.0
             }
             .onChange(of: locationManager.currentLocation) { _, newValue in
                 guard shouldNavigateToCurrentLocation, let coordinate = newValue else {
