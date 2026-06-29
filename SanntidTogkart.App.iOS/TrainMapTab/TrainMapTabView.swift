@@ -506,10 +506,8 @@ struct TrainMapTabView: View {
     }
 
     private func stationAnnotationTitle(for station: TraseStation) -> String {
-        [station.name, station.shortName, station.plcCode]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " • ")
+        station.name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @MapContentBuilder
@@ -1699,14 +1697,21 @@ private struct StationMapDotAnnotation: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Circle()
-            .fill(iconColor)
-            .frame(width: 7, height: 7)
-            .overlay {
-                Circle()
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.75 : 0.95), lineWidth: 1.5)
-            }
-            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.20), radius: 2, y: 1)
+        ZStack {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.white.opacity(colorScheme == .dark ? 0.28 : 0.72))
+                .frame(width: 7, height: 7)
+
+            Circle()
+                .fill(iconColor)
+                .frame(width: 7, height: 7)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(colorScheme == .dark ? 0.85 : 1.0), lineWidth: 1.5)
+                }
+        }
+        .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.35 : 0.55), radius: 2.5, y: 0)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.20), radius: 2, y: 1)
     }
 
     private var iconColor: Color {
@@ -1782,10 +1787,18 @@ private struct StationMapAnnotation: View {
     let isHighlighted: Bool
 
     var body: some View {
-        Image(systemName: "tram.fill")
-            .font(isHighlighted ? .subheadline.weight(.bold) : .caption.weight(.bold))
-            .foregroundStyle(iconColor)
-            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.52 : 0.24), radius: isHighlighted ? 3 : 2, y: 1)
+        ZStack {
+            RoundedRectangle(cornerRadius: isHighlighted ? 6 : 5, style: .continuous)
+                .fill(Color.white.opacity(colorScheme == .dark ? 0.24 : 0.68))
+                .frame(width: isHighlighted ? 16 : 12, height: isHighlighted ? 16 : 12)
+
+            Image(systemName: "tram.fill")
+                .font(isHighlighted ? .subheadline.weight(.bold) : .caption.weight(.bold))
+                .foregroundStyle(iconColor)
+                .frame(width: isHighlighted ? 16 : 12, height: isHighlighted ? 16 : 12)
+        }
+        .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.42 : 0.64), radius: isHighlighted ? 3.2 : 2.6, y: 0)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.52 : 0.24), radius: isHighlighted ? 3 : 2, y: 1)
     }
 
     private var iconColor: Color {
