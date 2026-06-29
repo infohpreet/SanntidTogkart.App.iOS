@@ -788,7 +788,7 @@ private final class TrainRouteViewModel {
         }
 
         await service.requestTrainStations(
-            countryCode: "",
+            countryCode: countryCode,
             trainNumber: trainNumber,
             originDate: originDate
         )

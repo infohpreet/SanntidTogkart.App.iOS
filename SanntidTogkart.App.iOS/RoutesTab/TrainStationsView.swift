@@ -731,7 +731,7 @@ private final class TrainStationsViewModel {
         await service.start()
         await service.requestStations()
         await service.requestTrainStations(
-            countryCode: "",
+            countryCode: trainMessage.countryCode,
             trainNumber: requestedTrainNumber,
             originDate: trainMessage.originDate
         )

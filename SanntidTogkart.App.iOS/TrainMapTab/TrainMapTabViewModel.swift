@@ -277,7 +277,7 @@ final class TrainMapTabViewModel {
         )
 
         await service.requestTrainStations(
-            countryCode: "",
+            countryCode: countryCode,
             trainNumber: trainNumber,
             originDate: originDate
         )
