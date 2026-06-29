@@ -15,5 +15,5 @@ enum CommonService {
 }
 
 private let freightIdentifiers: Set<String> = [
-    "ONR", "MTAB", "CN", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "TM", "HR", "PT"
+    "ABCD", "ONR", "MTAB", "CN", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "TM", "HR", "PT"
 ]
