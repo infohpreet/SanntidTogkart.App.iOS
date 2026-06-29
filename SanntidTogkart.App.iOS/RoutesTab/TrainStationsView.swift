@@ -46,7 +46,7 @@ struct TrainStationsView: View {
                     .onAppear {
                         scrollToLatestPassedStationIfNeeded(with: scrollProxy)
                     }
-                    .onChange(of: viewModel.stationMessages.map(\.id)) { _, _ in
+                    .onChange(of: stationMessagesChangeToken) { _, _ in
                         scrollToLatestPassedStationIfNeeded(with: scrollProxy)
                     }
                 }
@@ -57,6 +57,13 @@ struct TrainStationsView: View {
         .task {
             await viewModel.start(for: trainMessage)
         }
+    }
+
+    private var stationMessagesChangeToken: Int {
+        var hasher = Hasher()
+        hasher.combine(viewModel.stationMessages.count)
+        hasher.combine(viewModel.stationMessages.last?.id ?? -1)
+        return hasher.finalize()
     }
 
     private var latestPassedStationMessageID: Int? {
@@ -75,7 +82,7 @@ struct TrainStationsView: View {
 
         hasAutoScrolledToLatestPassedStation = true
 
-        DispatchQueue.main.async {
+        Task { @MainActor in
             withAnimation(.easeInOut(duration: 0.35)) {
                 scrollProxy.scrollTo(latestPassedStationMessageID, anchor: .top)
             }

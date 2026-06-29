@@ -15,6 +15,8 @@ struct OperatorTrainCount: Identifiable, Hashable {
 final class TrainMapTabViewModel {
     var stations: [TraseStation] = []
     var trainMessages: [TrainMessage] = []
+    var stationsUpdateToken = 0
+    var trainMessagesUpdateToken = 0
     var metrics: TrainMetrics?
     var selectedTrainMessageID: Int?
     var selectedTrainRouteCoordinates: [CLLocationCoordinate2D] = []
@@ -31,34 +33,11 @@ final class TrainMapTabViewModel {
     }
 
     var operatorCounts: [OperatorTrainCount] {
-        Dictionary(grouping: liveTrainMessages) { trainMessage in
-            let normalizedCompany = displayCompanyValue(for: trainMessage) ?? "Operatør mangler"
-            return normalizedCompany
-        }
-        .map { OperatorTrainCount(name: $0.key, count: $0.value.count) }
-        .sorted { lhs, rhs in
-            if lhs.count == rhs.count {
-                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-            }
-
-            return lhs.count > rhs.count
-        }
+        cachedOperatorCounts
     }
 
     var trainTypeCounts: [OperatorTrainCount] {
-        Dictionary(grouping: liveTrainMessages) { trainMessage in
-            let trainType = normalizedText(trainMessage.trainType) ?? ""
-            return trainType
-        }
-        .filter { !$0.key.isEmpty }
-        .map { OperatorTrainCount(name: $0.key, count: $0.value.count) }
-        .sorted { lhs, rhs in
-            if lhs.count == rhs.count {
-                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-            }
-
-            return lhs.count > rhs.count
-        }
+        cachedTrainTypeCounts
     }
 
     var mappableStations: [TraseStation] {
@@ -71,6 +50,8 @@ final class TrainMapTabViewModel {
     private var selectedTrainFallback: TrainMessage?
     private var selectedTrainStations: [StationMessage] = []
     private var selectedTrainRouteRequest: SelectedTrainRouteRequest?
+    private var cachedOperatorCounts: [OperatorTrainCount] = []
+    private var cachedTrainTypeCounts: [OperatorTrainCount] = []
 
     init() {
         self.service = SignalRService()
@@ -108,6 +89,7 @@ final class TrainMapTabViewModel {
             }
 
             self.stations = stations
+            self.stationsUpdateToken &+= 1
             self.errorMessage = nil
             self.isLoading = false
         }
@@ -128,6 +110,8 @@ final class TrainMapTabViewModel {
                 }
 
             self.trainMessages = activeTrainMessages
+            self.trainMessagesUpdateToken &+= 1
+            self.refreshAggregateCounts()
 
             if let selectedTrainMessageID = self.selectedTrainMessageID,
                !activeTrainMessages.contains(where: { $0.id == selectedTrainMessageID }) {
@@ -180,6 +164,33 @@ final class TrainMapTabViewModel {
 
             self.errorMessage = message
             self.isLoading = false
+        }
+    }
+
+    private func refreshAggregateCounts() {
+        cachedOperatorCounts = Dictionary(grouping: liveTrainMessages) { trainMessage in
+            displayCompanyValue(for: trainMessage) ?? "Operatør mangler"
+        }
+        .map { OperatorTrainCount(name: $0.key, count: $0.value.count) }
+        .sorted { lhs, rhs in
+            if lhs.count == rhs.count {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+
+            return lhs.count > rhs.count
+        }
+
+        cachedTrainTypeCounts = Dictionary(grouping: liveTrainMessages) { trainMessage in
+            normalizedText(trainMessage.trainType) ?? ""
+        }
+        .filter { !$0.key.isEmpty }
+        .map { OperatorTrainCount(name: $0.key, count: $0.value.count) }
+        .sorted { lhs, rhs in
+            if lhs.count == rhs.count {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+
+            return lhs.count > rhs.count
         }
     }
 

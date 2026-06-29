@@ -37,6 +37,8 @@ struct TrainMapTabView: View {
     @State private var hasLoggedZeroSizedMapSurface = false
     @State private var shouldNavigateToCurrentLocation = false
     @State private var presentedTrainListEntries: [TrainListEntry] = []
+    @State private var renderedStationsCache: [TraseStation] = []
+    @State private var renderedTrainsCache: [TrainMessage] = []
     @State private var visibleRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 59.9139, longitude: 10.7522),
         span: MKCoordinateSpan(latitudeDelta: 0.18, longitudeDelta: 0.18)
@@ -81,6 +83,7 @@ struct TrainMapTabView: View {
                 currentMapSpan = span
                 isZoomedOut = span.latitudeDelta > 0.7 || span.longitudeDelta > 0.7
                 isCountryZoomedOut = span.latitudeDelta > 2.0 || span.longitudeDelta > 7.0
+                refreshRenderedMapEntities()
             }
             .onChange(of: locationManager.currentLocation) { _, newValue in
                 guard shouldNavigateToCurrentLocation, let coordinate = newValue else {
@@ -349,6 +352,7 @@ struct TrainMapTabView: View {
             }
             .task {
                 await viewModel.start()
+                refreshRenderedMapEntities()
             }
             .onAppear {
                 processNavigationRequestsIfNeeded()
@@ -390,17 +394,18 @@ struct TrainMapTabView: View {
                     revealTrainOnMap(pendingTrainSelectionRequest)
                 }
             }
-            .onChange(of: viewModel.stations.count) { _, _ in
+            .onChange(of: viewModel.stationsUpdateToken) { _, _ in
+                refreshRenderedMapEntities()
+
                 guard let pendingStationSelectionRequest else {
                     return
                 }
 
                 revealStationOnMap(pendingStationSelectionRequest)
             }
-            .onChange(of: viewModel.trainMessages.map { trainMessage in
-                let serviceTime = trainMessage.trainPosition?.geoJson.properties.serviceTime.timeIntervalSince1970 ?? 0
-                return "\(trainMessage.id)|\(trainMessage.countryCode)|\(trainMessage.trainNo)|\(trainMessage.advertisementTrainNo)|\(trainMessage.originDate)|\(serviceTime)"
-            }) { _, _ in
+            .onChange(of: viewModel.trainMessagesUpdateToken) { _, _ in
+                refreshRenderedMapEntities()
+
                 guard let pendingTrainSelectionRequest else {
                     return
                 }
@@ -436,11 +441,16 @@ struct TrainMapTabView: View {
     }
 
     private var renderedStations: [TraseStation] {
-        viewModel.stationsInVisibleRegion(visibleRegion, limit: isZoomedOut ? 120 : 300)
+        renderedStationsCache
     }
 
     private var renderedTrains: [TrainMessage] {
-        viewModel.trainsInVisibleRegion(visibleRegion, limit: isZoomedOut ? 250 : 150)
+        renderedTrainsCache
+    }
+
+    private func refreshRenderedMapEntities() {
+        renderedStationsCache = viewModel.stationsInVisibleRegion(visibleRegion, limit: isZoomedOut ? 120 : 300)
+        renderedTrainsCache = viewModel.trainsInVisibleRegion(visibleRegion, limit: isZoomedOut ? 250 : 150)
     }
 
     @MapContentBuilder

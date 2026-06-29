@@ -14,7 +14,9 @@ final class RoutesTabViewModel {
     private var hasStarted = false
     private var rawMessages: [TrainMessage] = []
     private var stations: [TraseStation] = []
+    private var stationNameLookup: [String: String] = [:]
     private var hasRequestedStations = false
+    private var searchDebounceTask: Task<Void, Never>?
 
     init() {
         self.service = SignalRService()
@@ -33,6 +35,7 @@ final class RoutesTabViewModel {
             }
 
             self.stations = stations
+            self.stationNameLookup = self.makeStationNameLookup(from: stations)
             self.publishMessagesIfReady()
         }
 
@@ -82,11 +85,30 @@ final class RoutesTabViewModel {
 
     func updateSearchText(_ text: String) {
         searchText = text
-        applySearch()
+
+        searchDebounceTask?.cancel()
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedText.isEmpty else {
+            applySearch()
+            return
+        }
+
+        searchDebounceTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await MainActor.run {
+                self?.applySearch()
+            }
+        }
     }
 
     func stop() {
         hasStarted = false
+        searchDebounceTask?.cancel()
         service.stop()
     }
 
@@ -99,13 +121,7 @@ final class RoutesTabViewModel {
         }
 
         filteredMessages = messages.filter { message in
-            message.advertisementTrainNo.localizedCaseInsensitiveContains(query)
-                || message.trainNo.localizedCaseInsensitiveContains(query)
-                || (message.origin?.localizedCaseInsensitiveContains(query) ?? false)
-                || (message.destination?.localizedCaseInsensitiveContains(query) ?? false)
-                || (message.trainType?.localizedCaseInsensitiveContains(query) ?? false)
-                || (message.lineNumber?.localizedCaseInsensitiveContains(query) ?? false)
-                || (message.company?.localizedCaseInsensitiveContains(query) ?? false)
+            message.searchableText.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -138,12 +154,27 @@ final class RoutesTabViewModel {
             return
         }
 
-        let stationNames = makeStationNameLookup(from: stations)
         messages = rawMessages.reversed().map { message in
-            RouteMessage(
+            let resolvedOrigin = resolvedStationName(for: message.origin, countryCode: message.countryCode, using: stationNameLookup)
+            let resolvedDestination = resolvedStationName(for: message.destination, countryCode: message.countryCode, using: stationNameLookup)
+            let searchableText = [
+                message.advertisementTrainNo,
+                message.trainNo,
+                resolvedOrigin,
+                resolvedDestination,
+                message.trainType,
+                message.lineNumber,
+                message.company
+            ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) ?? $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+
+            return RouteMessage(
                 trainMessage: message,
-                origin: resolvedStationName(for: message.origin, countryCode: message.countryCode, using: stationNames),
-                destination: resolvedStationName(for: message.destination, countryCode: message.countryCode, using: stationNames)
+                origin: resolvedOrigin,
+                destination: resolvedDestination,
+                searchableText: searchableText
             )
         }
         applySearch()
@@ -199,6 +230,7 @@ struct RouteMessage: Identifiable {
     let trainMessage: TrainMessage
     let origin: String?
     let destination: String?
+    let searchableText: String
 
     var id: Int { trainMessage.id }
     var countryCode: String { trainMessage.countryCode }

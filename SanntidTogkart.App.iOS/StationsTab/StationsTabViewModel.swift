@@ -19,6 +19,7 @@ final class StationsTabViewModel {
     private let service: SignalRService
     private let locationManager: StationListLocationManager
     private var hasStarted = false
+    private var lastSearchRefreshLocation: CLLocation?
 
     init() {
         self.service = SignalRService()
@@ -39,6 +40,11 @@ final class StationsTabViewModel {
             }
 
             self.currentLocation = location
+            guard self.shouldRefreshSearch(for: location) else {
+                return
+            }
+
+            self.lastSearchRefreshLocation = location
             self.applySearch()
         }
 
@@ -48,6 +54,7 @@ final class StationsTabViewModel {
             }
 
             self.stations = stations
+            self.lastSearchRefreshLocation = self.currentLocation
             self.applySearch()
             self.errorMessage = nil
             self.isLoading = false
@@ -160,6 +167,14 @@ final class StationsTabViewModel {
 
         let stationLocation = CLLocation(latitude: latitude, longitude: longitude)
         return currentLocation.distance(from: stationLocation)
+    }
+
+    private func shouldRefreshSearch(for location: CLLocation) -> Bool {
+        guard let lastSearchRefreshLocation else {
+            return true
+        }
+
+        return location.distance(from: lastSearchRefreshLocation) >= 350
     }
 }
 

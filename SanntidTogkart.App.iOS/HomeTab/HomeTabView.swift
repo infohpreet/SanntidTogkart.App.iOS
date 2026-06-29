@@ -193,6 +193,7 @@ private final class HomeTabViewModel {
     private let service: SignalRService
     private let locationManager: HomeTabLocationManager
     private var hasStarted = false
+    private var refreshNearestStationTask: Task<Void, Never>?
 
     init() {
         self.service = SignalRService()
@@ -234,7 +235,17 @@ private final class HomeTabViewModel {
     }
 
     func refreshNearestStation() {
-        updateNearestStation()
+        refreshNearestStationTask?.cancel()
+        refreshNearestStationTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await MainActor.run {
+                self?.updateNearestStation()
+            }
+        }
     }
 
     func distanceText(for station: TraseStation) -> String? {
