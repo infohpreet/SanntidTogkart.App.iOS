@@ -8,8 +8,8 @@ struct TrainMessage: Codable, Identifiable, Sendable {
     let trainNo: String
     let originDate: String
     let originTime: Date?
-    let origin: String?
-    let destination: String?
+    var origin: String?
+    var destination: String?
     let trainType: String?
     let lineNumber: String?
     let company: String?

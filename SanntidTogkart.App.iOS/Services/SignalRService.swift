@@ -726,9 +726,10 @@ final class SignalRService {
                 let decoder = self.decoder
                 Task.detached(priority: .userInitiated) {
                     do {
-                        let trainMessages = try decoder.decode([TrainMessage].self, from: argumentData)
+                        let receivedTrainMessages = try decoder.decode([TrainMessage].self, from: argumentData)
                         await MainActor.run {
-                            let cachedMessages = self.cacheTrainMessages(trainMessages)
+                            let mappedTrainMessages = receivedTrainMessages.map { self.applyStationCodeMapping(to: $0) }
+                            let cachedMessages = self.cacheTrainMessages(mappedTrainMessages)
                             if let cacheKey = self.trainMessagesCacheKey(from: cachedMessages) {
                                 Self.cachedTrainMessages[cacheKey] = cachedMessages
                             }
@@ -772,12 +773,13 @@ final class SignalRService {
                 let decoder = self.decoder
                 Task.detached(priority: .userInitiated) {
                     do {
-                        let trainMessage = try await MainActor.run {
+                        let receivedTrainMessage = try await MainActor.run {
                             try decoder.decode(TrainMessage.self, from: argumentData)
                         }
                         await MainActor.run {
-                            _ = self.cacheTrainMessages([trainMessage])
-                            Self.broadcast { $0.onTrainMessage?(trainMessage) }
+                            let mappedTrainMessage = self.applyStationCodeMapping(to: receivedTrainMessage)
+                            _ = self.cacheTrainMessages([mappedTrainMessage])
+                            Self.broadcast { $0.onTrainMessage?(mappedTrainMessage) }
                         }
                     } catch {
                         await MainActor.run {
@@ -1035,6 +1037,37 @@ final class SignalRService {
         return cachedMessages
     }
 
+    private func applyStationCodeMapping(to trainMessage: TrainMessage) -> TrainMessage {
+        let mappedOrigin = remappedStationCode(for: trainMessage.origin)
+        let mappedDestination = remappedStationCode(for: trainMessage.destination)
+
+        if
+            let mappedOrigin,
+            let mappedDestination,
+            mappedOrigin.localizedCaseInsensitiveCompare(mappedDestination) == .orderedSame
+        {
+            return trainMessage
+        }
+
+        var updatedTrainMessage = trainMessage
+        updatedTrainMessage.origin = mappedOrigin
+        updatedTrainMessage.destination = mappedDestination
+        return updatedTrainMessage
+    }
+
+    private func remappedStationCode(for value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+
+        let normalizedCode = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalizedCode.isEmpty else {
+            return value
+        }
+
+        return trainMessageStationCodeMappings[normalizedCode] ?? value
+    }
+
     private static func isActiveMapTrain(_ trainMessage: TrainMessage) -> Bool {
         guard
             let serviceTime = trainMessage.trainPosition?.geoJson.properties.serviceTime,
@@ -1225,6 +1258,13 @@ private let dateOnlyFormatter: DateFormatter = {
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter
 }()
+
+private let trainMessageStationCodeMappings: [String: String] = [
+    "LOD": "OSL",
+    "SUD": "DRM",
+    "KVB": "STV",
+    "BES": "SKØ"
+]
 
 private struct FeedHubSignalRConfiguration {
     let hubURL: URL
