@@ -64,7 +64,7 @@ struct TrainRouteView: View {
             }
         }
         .background(AppTheme.background.ignoresSafeArea())
-        .navigationTitle("Til \(viewModel.routeDestinationText(fallbackTitle: routeTitleFallback))")
+        .navigationTitle("\(direction.titlePrefix) \(viewModel.routeEndpointText(direction: direction, fallbackTitle: routeTitleFallback))")
         .toolbar {
             if let activeMapTrain = viewModel.activeMapTrain {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -364,9 +364,9 @@ enum TrainRouteDirection {
     var titlePrefix: String {
         switch self {
         case .departure:
-            return "Fra"
-        case .arrival:
             return "Til"
+        case .arrival:
+            return "Fra"
         }
     }
 
@@ -513,16 +513,42 @@ private final class TrainRouteViewModel {
         SignalRService.activeMapTrain(matching: trainMessage)
     }
 
-    func routeDestinationText(fallbackTitle: String) -> String {
-        guard let destinationMessage = stationMessages.last else {
+    func routeEndpointText(direction: TrainRouteDirection, fallbackTitle: String) -> String {
+        if let trainMessage {
+            switch direction {
+            case .departure:
+                if let destinationText = destinationText(for: trainMessage) {
+                    return destinationText
+                }
+            case .arrival:
+                if let originText = originText(for: trainMessage) {
+                    return originText
+                }
+            }
+        }
+
+        let fallbackStationMessage: StationMessage?
+        switch direction {
+        case .departure:
+            fallbackStationMessage = stationMessages.last
+        case .arrival:
+            fallbackStationMessage = stationMessages.first
+        }
+
+        guard let fallbackStationMessage else {
             return fallbackTitle
         }
 
-        return stationName(for: destinationMessage)
+        return stationName(for: fallbackStationMessage)
     }
 
     func destinationText(for trainMessage: TrainMessage) -> String? {
         normalizedText(trainMessage.destination)
+            .map { displayStationName(for: $0, countryCode: trainMessage.countryCode) }
+    }
+
+    func originText(for trainMessage: TrainMessage) -> String? {
+        normalizedText(trainMessage.origin)
             .map { displayStationName(for: $0, countryCode: trainMessage.countryCode) }
     }
 
