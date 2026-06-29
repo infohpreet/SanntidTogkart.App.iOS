@@ -544,14 +544,18 @@ private struct HomeFavoriteStationBoard: View {
     }
 
     private func trainBadge(for stationMessage: StationMessage, size: HomeFavoriteBadgeSize) -> some View {
-        Text(viewModel.trainDisplayText(for: stationMessage))
+        let isFreightTrain = CommonService.isFreightTrainCompany(
+            viewModel.trainDetail(for: stationMessage)?.company
+        )
+
+        return Text(viewModel.trainDisplayText(for: stationMessage))
             .font(size.font)
             .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(width: size.width, height: size.height)
             .background(
-                viewModel.isFreightTrain(for: stationMessage) ? HomeFavoriteBoardStyle.freightGreen : HomeFavoriteBoardStyle.trainRed,
+                isFreightTrain ? HomeFavoriteBoardStyle.freightGreen : HomeFavoriteBoardStyle.trainRed,
                 in: RoundedRectangle(cornerRadius: 1)
             )
     }
@@ -711,10 +715,6 @@ private final class HomeFavoriteStationBoardViewModel {
 
     func isPrimaryTrackActivity(for stationMessage: StationMessage) -> Bool {
         normalizedText(stationMessage.activity)?.uppercased() == "S"
-    }
-
-    func isFreightTrain(for stationMessage: StationMessage) -> Bool {
-        CommonService.isFreightTrainType(trainDetail(for: stationMessage)?.trainType)
     }
 
     func expectedTimeDisplayText(for stationMessage: StationMessage) -> String? {

@@ -1,16 +1,19 @@
 import Foundation
 
 enum CommonService {
-    static func isFreightTrainType(_ trainType: String?) -> Bool {
-        let normalizedType = trainType?
+    static func isFreightTrainCompany(_ company: String?) -> Bool {
+        let normalizedCompany = company?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
 
-        switch normalizedType {
-        case "ONR", "MTAB", "GAG", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "TM", "HR", "PT":
-            return true
-        default:
+        guard let normalizedCompany, !normalizedCompany.isEmpty else {
             return false
         }
+
+        return freightIdentifiers.contains(normalizedCompany)
     }
 }
+
+private let freightIdentifiers: Set<String> = [
+    "ONR", "MTAB", "CN", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "TM", "HR", "PT"
+]

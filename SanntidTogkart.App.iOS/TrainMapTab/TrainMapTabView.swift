@@ -521,12 +521,12 @@ struct TrainMapTabView: View {
                         } label: {
                             if isCountryZoomedOut {
                                 TrainMapDotAnnotation(
-                                    trainType: train.trainType,
+                                    freightIdentifier: freightIdentifier(for: train),
                                     isHighlighted: train.id == viewModel.selectedTrainMessageID
                                 )
                             } else {
                                 TrainMapAnnotation(
-                                    trainType: train.trainType,
+                                    freightIdentifier: freightIdentifier(for: train),
                                     isHighlighted: train.id == viewModel.selectedTrainMessageID
                                 )
                             }
@@ -543,12 +543,12 @@ struct TrainMapTabView: View {
                 Annotation(viewModel.displayLineNumber(for: selectedTrain), coordinate: coordinate) {
                     if isCountryZoomedOut {
                         TrainMapDotAnnotation(
-                            trainType: selectedTrain.trainType,
+                            freightIdentifier: freightIdentifier(for: selectedTrain),
                             isHighlighted: true
                         )
                     } else {
                         TrainMapAnnotation(
-                            trainType: selectedTrain.trainType,
+                            freightIdentifier: freightIdentifier(for: selectedTrain),
                             isHighlighted: true
                         )
                     }
@@ -559,6 +559,10 @@ struct TrainMapTabView: View {
 
     private var selectedTrain: TrainMessage? {
         viewModel.selectedTrain
+    }
+
+    private func freightIdentifier(for trainMessage: TrainMessage) -> String? {
+        normalizedText(trainMessage.company)
     }
 
     private var selectedStation: TraseStation? {
@@ -1720,12 +1724,12 @@ private struct StationMapDotAnnotation: View {
 }
 
 private struct TrainMapDotAnnotation: View {
-    let trainType: String?
+    let freightIdentifier: String?
     let isHighlighted: Bool
 
     var body: some View {
         Circle()
-            .fill(isHighlighted ? Color.orange : trainMarkerColor(for: trainType))
+            .fill(isHighlighted ? Color.orange : trainMarkerColor(for: freightIdentifier))
             .frame(width: isHighlighted ? 9 : 7, height: isHighlighted ? 9 : 7)
             .overlay {
                 Circle()
@@ -1807,7 +1811,7 @@ private struct StationMapAnnotation: View {
 }
 
 private struct TrainMapAnnotation: View {
-    let trainType: String?
+    let freightIdentifier: String?
     let isHighlighted: Bool
 
     var body: some View {
@@ -1837,12 +1841,12 @@ private struct TrainMapAnnotation: View {
     }
 
     private var markerColor: Color {
-        isHighlighted ? .orange : trainMarkerColor(for: trainType)
+        isHighlighted ? .orange : trainMarkerColor(for: freightIdentifier)
     }
 }
 
-private func trainMarkerColor(for trainType: String?) -> Color {
-    switch CommonService.isFreightTrainType(trainType) {
+private func trainMarkerColor(for freightIdentifier: String?) -> Color {
+    switch CommonService.isFreightTrainCompany(freightIdentifier) {
     case true:
         return .green
     case false:

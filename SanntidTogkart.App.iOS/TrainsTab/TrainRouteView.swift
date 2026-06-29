@@ -506,7 +506,7 @@ private final class TrainRouteViewModel {
     }
 
     var isFreightTrain: Bool {
-        CommonService.isFreightTrainType(trainMessage?.trainType)
+        CommonService.isFreightTrainCompany(trainMessage?.company)
     }
 
     var activeMapTrain: TrainMessage? {
