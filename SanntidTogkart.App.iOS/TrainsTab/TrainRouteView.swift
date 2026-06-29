@@ -121,8 +121,10 @@ struct TrainRouteView: View {
 
             boardHeader
 
-            ForEach(Array(viewModel.stationMessages.enumerated()), id: \.element.id) { index, message in
-                routeRow(message, index: index)
+            LazyVStack(spacing: 0) {
+                ForEach(viewModel.stationMessages.indices, id: \.self) { index in
+                    routeRow(viewModel.stationMessages[index], index: index)
+                }
             }
 
             Rectangle()
@@ -406,6 +408,9 @@ private final class TrainRouteViewModel {
 
     private let service: SignalRService
     private var stations: [TraseStation] = []
+    private var stationNameLookup: [String: String] = [:]
+    private var stopCountCache = 0
+    private var passingCountCache = 0
     private var requestedTrainIdentity: TrainRouteTrainIdentity?
     private var hasStarted = false
 
@@ -422,6 +427,7 @@ private final class TrainRouteViewModel {
             }
 
             self.stations = stations
+            self.stationNameLookup = self.makeStationNameLookup(from: stations)
         }
 
         service.onTrainStations = { [weak self] stationMessages in
@@ -430,7 +436,10 @@ private final class TrainRouteViewModel {
                 return
             }
 
-            self.stationMessages = self.orderedStationMessages(stationMessages)
+                        let orderedMessages = self.orderedStationMessages(stationMessages)
+                        self.stationMessages = orderedMessages
+                        self.stopCountCache = orderedMessages.filter { self.isStopActivity($0) }.count
+                        self.passingCountCache = orderedMessages.filter { self.isPassingActivity($0) }.count
             self.errorMessage = nil
             self.isLoading = false
         }
@@ -585,11 +594,11 @@ private final class TrainRouteViewModel {
     }
 
     var stopCount: Int {
-        stationMessages.filter { isStopActivity($0) }.count
+        stopCountCache
     }
 
     var passingCount: Int {
-        stationMessages.filter { isPassingActivity($0) }.count
+        passingCountCache
     }
 
     var currentRouteIndex: Int {
@@ -842,6 +851,11 @@ private final class TrainRouteViewModel {
 
     private func displayStationName(for rawValue: String, countryCode: String) -> String {
         let normalizedValue = normalizedText(rawValue) ?? rawValue
+        let key = stationLookupKey(countryCode: countryCode, value: normalizedValue)
+
+        if let stationName = stationNameLookup[key] {
+            return stationName
+        }
 
         if let station = stations.first(where: { station in
             station.countryCode.localizedCaseInsensitiveCompare(countryCode) == .orderedSame
@@ -855,6 +869,35 @@ private final class TrainRouteViewModel {
         }
 
         return rawValue
+    }
+
+    private func makeStationNameLookup(from stations: [TraseStation]) -> [String: String] {
+        var lookup: [String: String] = [:]
+
+        for station in stations {
+            let stationName = station.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !stationName.isEmpty else {
+                continue
+            }
+
+            let keys = [station.shortName, station.name, station.plcCode]
+            for key in keys {
+                let normalizedKey = key?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !normalizedKey.isEmpty else {
+                    continue
+                }
+
+                lookup[stationLookupKey(countryCode: station.countryCode, value: normalizedKey)] = stationName
+            }
+        }
+
+        return lookup
+    }
+
+    private func stationLookupKey(countryCode: String, value: String) -> String {
+        let normalizedCountryCode = countryCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return "\(normalizedCountryCode)|\(normalizedValue)"
     }
 
     private func normalizedText(_ value: String?) -> String? {
