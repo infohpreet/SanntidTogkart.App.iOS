@@ -130,14 +130,14 @@ final class TrainMapTabViewModel {
             self.errorMessage = nil
         }
 
-        service.onTrainRoutePositions = { [weak self] trainPositions in
+        service.onTrainLocations = { [weak self] trainLocations in
             guard let self else {
                 return
             }
 
-            let routeCoordinates = trainPositions
+            let routeCoordinates = trainLocations
                 .sorted { lhs, rhs in
-                    lhs.geoJson.properties.serviceTime < rhs.geoJson.properties.serviceTime
+                    lhs.serviceTime < rhs.serviceTime
                 }
                 .compactMap(self.coordinate(for:))
 
@@ -281,7 +281,7 @@ final class TrainMapTabViewModel {
             originDate: originDate
         )
 
-        await service.requestTrainPositionsList(
+        await service.requestTrainLocationsList(
             countryCode: countryCode,
             trainNumber: trainNumber,
             originDate: originDate
@@ -308,7 +308,7 @@ final class TrainMapTabViewModel {
     }
 
     func mapCoordinate(for trainMessage: TrainMessage) -> CLLocationCoordinate2D? {
-        coordinate(for: trainMessage.trainPosition)
+        coordinate(for: trainMessage.trainLocation)
     }
 
     func displayCountryCode(for trainMessage: TrainMessage) -> String {
@@ -318,7 +318,7 @@ final class TrainMapTabViewModel {
     func displayTrainNumber(for trainMessage: TrainMessage) -> String {
         normalizedText(trainMessage.trainNo)
             ?? normalizedText(trainMessage.advertisementTrainNo)
-            ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.trainNumber)
+            ?? normalizedText(trainMessage.trainLocation?.trainNumber)
             ?? "Tog"
     }
 
@@ -469,9 +469,7 @@ final class TrainMapTabViewModel {
             normalizedText(trainMessage.trainType),
             normalizedText(trainMessage.company),
             normalizedText(trainMessage.countryCode),
-            normalizedText(trainMessage.trainPosition?.toc),
-            normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef),
-            normalizedText(trainMessage.trainPosition?.geoJson.properties.trainNumber)
+            normalizedText(trainMessage.trainLocation?.trainNumber)
         ]
         .compactMap { normalizedText($0) }
     }
@@ -550,18 +548,8 @@ final class TrainMapTabViewModel {
         }
     }
 
-    private func coordinate(for trainPosition: TrainPosition?) -> CLLocationCoordinate2D? {
-        guard
-            let trainPosition,
-            trainPosition.geoJson.geometry.coordinates.count >= 2
-        else {
-            return nil
-        }
-
-        return CLLocationCoordinate2D(
-            latitude: trainPosition.geoJson.geometry.coordinates[1],
-            longitude: trainPosition.geoJson.geometry.coordinates[0]
-        )
+    private func coordinate(for trainLocation: TrainLocation?) -> CLLocationCoordinate2D? {
+        trainLocation?.coordinate
     }
 
     private func coordinateForStation(named rawValue: String, countryCode: String) -> CLLocationCoordinate2D? {
@@ -592,16 +580,15 @@ final class TrainMapTabViewModel {
     private func routeTrainNumber(for trainMessage: TrainMessage) -> String? {
         normalizedText(trainMessage.trainNo)
             ?? normalizedText(trainMessage.advertisementTrainNo)
-            ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.trainNumber)
+            ?? normalizedText(trainMessage.trainLocation?.trainNumber)
     }
 
     private func routeOriginDate(for trainMessage: TrainMessage) -> String? {
         normalizedText(trainMessage.originDate)
-            ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.originDate)
     }
 
     private func isActiveTrainMessage(_ trainMessage: TrainMessage) -> Bool {
-        guard let serviceTime = trainMessage.trainPosition?.geoJson.properties.serviceTime else {
+        guard let serviceTime = trainMessage.trainLocation?.serviceTime else {
             return false
         }
 
@@ -615,8 +602,6 @@ final class TrainMapTabViewModel {
 
     private func displayCompanyValue(for trainMessage: TrainMessage) -> String? {
         normalizedText(trainMessage.company)
-            ?? normalizedText(trainMessage.trainPosition?.toc)
-            ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef)
     }
 
     private func distance(for coordinates: [CLLocationCoordinate2D]) -> CLLocationDistance? {

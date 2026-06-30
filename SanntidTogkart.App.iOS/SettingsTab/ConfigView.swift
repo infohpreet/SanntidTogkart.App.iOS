@@ -7,10 +7,7 @@ struct ConfigView: View {
     @Bindable var authSession: AuthSession
     @AppStorage("appAppearanceMode") private var appAppearanceModeRawValue = AppAppearanceMode.system.rawValue
     @AppStorage(AppNavigationCenter.startupDashboardTabKey) private var startupDashboardTabRawValue = DashboardTab.home.rawValue
-    @State private var selectedEnvironment = AuthConfig.currentEnvironment
-    @State private var pendingEnvironment: AppEnvironment?
-    @State private var isShowingEnvironmentChangeConfirmation = false
-    @State private var isSwitchingEnvironment = false
+    @State private var selectedEnvironment = AppEnvironment.training
     @State private var locationAccessManager = SettingsLocationAccessManager()
     @State private var logStore = AppLogStore.shared
 
@@ -29,27 +26,6 @@ struct ConfigView: View {
         }
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("Innstillinger")
-        .alert("Bytte miljø?", isPresented: $isShowingEnvironmentChangeConfirmation) {
-            Button("Avbryt", role: .cancel) {
-                pendingEnvironment = nil
-                selectedEnvironment = AuthConfig.currentEnvironment
-            }
-            Button("Fortsett") {
-                guard let pendingEnvironment else {
-                    return
-                }
-
-                Task {
-                    isSwitchingEnvironment = true
-                    await SignalRService.switchEnvironment(to: pendingEnvironment)
-                    self.pendingEnvironment = nil
-                    selectedEnvironment = AuthConfig.currentEnvironment
-                    isSwitchingEnvironment = false
-                }
-            }
-        } message: {
-            Text("Bytte av miljø oppdaterer SignalR-forbindelsen. Vil du fortsette?")
-        }
     }
 
     private var appearanceCard: some View {
@@ -99,26 +75,17 @@ struct ConfigView: View {
             Label("Miljø", systemImage: "network")
                 .font(.headline)
 
-            Text("Bytt miljø for SignalR-data. Endringen gjelder umiddelbart.")
+            Text("Appen er midlertidig låst til Training-miljøet.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Picker("Miljø", selection: environmentSelectionBinding) {
+            Picker("Miljø", selection: $selectedEnvironment) {
                 ForEach(AppEnvironment.allCases) { environment in
                     Text(environment.title).tag(environment)
                 }
             }
             .pickerStyle(.segmented)
-            .disabled(isSwitchingEnvironment)
-
-            if isSwitchingEnvironment {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .controlSize(.small)
-                    Spacer()
-                }
-            }
+            .disabled(true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -227,23 +194,6 @@ struct ConfigView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Ukjent"
     }
 
-    private var environmentSelectionBinding: Binding<AppEnvironment> {
-        Binding(
-            get: { selectedEnvironment },
-            set: { newValue in
-                guard !isSwitchingEnvironment else {
-                    return
-                }
-
-                guard newValue != selectedEnvironment else {
-                    return
-                }
-
-                pendingEnvironment = newValue
-                isShowingEnvironmentChangeConfirmation = true
-            }
-        )
-    }
 }
 
 @MainActor

@@ -13,7 +13,7 @@ final class SignalRService {
     var onTrainMessages: (([TrainMessage]) -> Void)?
     var onTrainMessage: ((TrainMessage) -> Void)?
     var onLiveTrainMessages: (([TrainMessage]) -> Void)?
-    var onTrainRoutePositions: (([TrainPosition]) -> Void)?
+    var onTrainLocations: (([TrainLocation]) -> Void)?
     var onStateChange: ((ConnectionState) -> Void)?
     var onHandshake: ((SignalRHandshakeInfo) -> Void)?
     var onError: ((String) -> Void)?
@@ -28,7 +28,7 @@ final class SignalRService {
     private static var trainMessagesByID: [String: TrainMessage] = [:]
     private static var liveTrainMessagesByID: [String: TrainMessage] = [:]
     private static var pendingTrainMessageKeys: Set<String> = []
-    private static var pendingTrainPositionsByID: [String: TrainPosition] = [:]
+    private static var pendingTrainLocationsByID: [String: TrainLocation] = [:]
     private static var cachedStations: [TraseStation] = []
     private static var cachedTrainMessages: [TrainMessagesCacheKey: [TrainMessage]] = [:]
     private static var cachedMetrics: TrainMetrics?
@@ -69,11 +69,15 @@ final class SignalRService {
     }
 
     static func switchEnvironment(to environment: AppEnvironment) async {
-        guard AuthConfig.currentEnvironment != environment else {
+        guard environment == .training else {
             return
         }
 
-        AuthConfig.currentEnvironment = environment
+        guard AuthConfig.currentEnvironment != .training else {
+            return
+        }
+
+        AuthConfig.currentEnvironment = .training
         await reloadForCurrentEnvironment()
     }
 
@@ -88,7 +92,7 @@ final class SignalRService {
         trainMessagesByID.removeAll()
         liveTrainMessagesByID.removeAll()
         pendingTrainMessageKeys.removeAll()
-        pendingTrainPositionsByID.removeAll()
+        pendingTrainLocationsByID.removeAll()
         cachedStations.removeAll()
         cachedTrainMessages.removeAll()
         cachedMetrics = nil
@@ -100,7 +104,7 @@ final class SignalRService {
             service.onStations?([])
             service.onTrainMessages?([])
             service.onLiveTrainMessages?([])
-            service.onTrainRoutePositions?([])
+            service.onTrainLocations?([])
         }
 
         queueRequestsForActiveServices()
@@ -221,26 +225,26 @@ final class SignalRService {
         }
     }
 
-    func requestTrainPositionsList(
+    func requestTrainLocationsList(
         countryCode: String,
         trainNumber: String,
         originDate: String
     ) async {
         guard let webSocketTask = Self.webSocketTask else {
-            Self.pendingRequests.append(.trainPositionsList(countryCode, trainNumber, originDate))
+            Self.pendingRequests.append(.trainLocationsList(countryCode, trainNumber, originDate))
             await start()
             return
         }
 
         do {
-            try await sendGetTrainPositionsList(
+            try await sendGetTrainLocationsList(
                 countryCode: countryCode,
                 trainNumber: trainNumber,
                 originDate: originDate,
                 on: webSocketTask
             )
         } catch {
-            reportError(error, context: "requestTrainPositionsList")
+            reportError(error, context: "requestTrainLocationsList")
         }
     }
 
@@ -488,15 +492,15 @@ final class SignalRService {
         )
     }
 
-    private func sendGetTrainPositionsList(
+    private func sendGetTrainLocationsList(
         countryCode: String,
         trainNumber: String,
         originDate: String,
         on webSocketTask: URLSessionWebSocketTask
     ) async throws {
         try await sendInvocation(
-            invocationID: "get-train-positions-list",
-            target: "GetTrainPositionsList",
+            invocationID: "get-train-locations-list",
+            target: "GetTrainLocationsList",
             arguments: [
                 .string(countryCode),
                 .string(trainNumber),
@@ -597,8 +601,8 @@ final class SignalRService {
                 try await sendGetStations(filter: filter, on: webSocketTask)
             case .trainMessages(let filter, let originDate):
                 try await sendGetTrainMessages(filter: filter, originDate: originDate, on: webSocketTask)
-            case .trainPositionsList(let countryCode, let trainNumber, let originDate):
-                try await sendGetTrainPositionsList(
+            case .trainLocationsList(let countryCode, let trainNumber, let originDate):
+                try await sendGetTrainLocationsList(
                     countryCode: countryCode,
                     trainNumber: trainNumber,
                     originDate: originDate,
@@ -787,33 +791,33 @@ final class SignalRService {
                         }
                     }
                 }
-            case "ReceiveTrainPosition":
+            case "ReceiveTrainLocation":
                 let decoder = self.decoder
                 Task.detached(priority: .userInitiated) {
                     do {
-                        let trainPosition = try await MainActor.run {
-                            try decoder.decode(TrainPosition.self, from: argumentData)
+                        let trainLocation = try await MainActor.run {
+                            try decoder.decode(TrainLocation.self, from: argumentData)
                         }
                         await MainActor.run {
-                            self.handleTrainPosition(trainPosition)
+                            self.handleTrainLocation(trainLocation)
                         }
                     } catch {
                         await MainActor.run {
-                            self.logDecodingFailure(prefix: "SignalR ReceiveTrainPosition", error: error, data: argumentData)
+                            self.logDecodingFailure(prefix: "SignalR ReceiveTrainLocation", error: error, data: argumentData)
                         }
                     }
                 }
-            case "ReceiveTrainPositionList":
+            case "ReceiveTrainLocationList":
                 let decoder = self.decoder
                 Task.detached(priority: .userInitiated) {
                     do {
-                        let trainPositions = try decoder.decode([TrainPosition].self, from: argumentData)
+                        let trainLocations = try decoder.decode([TrainLocation].self, from: argumentData)
                         await MainActor.run {
-                            self.handleTrainPositionList(trainPositions)
+                            self.handleTrainLocationList(trainLocations)
                         }
                     } catch {
                         await MainActor.run {
-                            self.logDecodingFailure(prefix: "SignalR ReceiveTrainPositionList", error: error, data: argumentData)
+                            self.logDecodingFailure(prefix: "SignalR ReceiveTrainLocationList", error: error, data: argumentData)
                         }
                     }
                 }
@@ -903,27 +907,27 @@ final class SignalRService {
         return decoder
     }
 
-    private func handleTrainPosition(_ trainPosition: TrainPosition) {
-        let key = liveTrainPositionKey(for: trainPosition)
+    private func handleTrainLocation(_ trainLocation: TrainLocation) {
+        let key = liveTrainLocationKey(for: trainLocation)
         if let existingMessage = Self.liveTrainMessagesByID[key] ?? Self.trainMessagesByID[key] {
-            let updatedMessage = mergedTrainMessage(existingMessage, with: trainPosition)
+            let updatedMessage = mergedTrainMessage(existingMessage, with: trainLocation)
             Self.trainMessagesByID[key] = updatedMessage
             Self.liveTrainMessagesByID[key] = updatedMessage
-            Self.pendingTrainPositionsByID.removeValue(forKey: key)
+            Self.pendingTrainLocationsByID.removeValue(forKey: key)
             publishLiveTrainMessages()
             return
         }
 
-        Self.pendingTrainPositionsByID[key] = trainPosition
-        requestMissingTrainMessage(for: trainPosition)
+        Self.pendingTrainLocationsByID[key] = trainLocation
+        requestMissingTrainMessage(for: trainLocation)
     }
 
-    private func handleTrainPositionList(_ trainPositions: [TrainPosition]) {
-        for trainPosition in trainPositions {
-            requestMissingTrainMessage(for: trainPosition)
+    private func handleTrainLocationList(_ trainLocations: [TrainLocation]) {
+        for trainLocation in trainLocations {
+            requestMissingTrainMessage(for: trainLocation)
         }
 
-        Self.broadcast { $0.onTrainRoutePositions?(trainPositions) }
+        Self.broadcast { $0.onTrainLocations?(trainLocations) }
     }
 
     private func logDecodingFailure(prefix: String, error: Error, data: Data) {
@@ -983,21 +987,15 @@ final class SignalRService {
         return path.isEmpty ? "<root>" : path.joined(separator: ".")
     }
 
-    private func requestMissingTrainMessage(for trainPosition: TrainPosition) {
-        guard
-            let originDate = normalizedOriginDate(
-                trainPosition.geoJson.properties.originDate,
-                fallbackDate: trainPosition.geoJson.properties.serviceTime
-            ),
-            !trainPosition.geoJson.properties.trainNumber.isEmpty
-        else {
+    private func requestMissingTrainMessage(for trainLocation: TrainLocation) {
+        guard let originDate = normalizedOriginDate(nil, fallbackDate: trainLocation.serviceTime), !trainLocation.trainNumber.isEmpty else {
             return
         }
 
         Task { [weak self] in
             await self?.requestTrainMessage(
-                countryCode: trainPosition.country,
-                trainNo: trainPosition.geoJson.properties.trainNumber,
+                countryCode: trainLocation.countryCode,
+                trainNo: trainLocation.trainNumber,
                 originDate: originDate
             )
         }
@@ -1013,17 +1011,17 @@ final class SignalRService {
                 trainNo: trainMessage.trainNo,
                 originDate: trainMessage.originDate
             )
-            let latestTrainPosition = Self.pendingTrainPositionsByID[key]
-                ?? Self.liveTrainMessagesByID[key]?.trainPosition
-                ?? Self.trainMessagesByID[key]?.trainPosition
-            let mergedMessage = mergedTrainMessage(trainMessage, with: latestTrainPosition)
+            let latestTrainLocation = Self.pendingTrainLocationsByID[key]
+                ?? Self.liveTrainMessagesByID[key]?.trainLocation
+                ?? Self.trainMessagesByID[key]?.trainLocation
+            let mergedMessage = mergedTrainMessage(trainMessage, with: latestTrainLocation)
 
             Self.trainMessagesByID[key] = mergedMessage
             Self.pendingTrainMessageKeys.remove(key)
 
-            if mergedMessage.trainPosition != nil {
+            if mergedMessage.trainLocation != nil {
                 Self.liveTrainMessagesByID[key] = mergedMessage
-                Self.pendingTrainPositionsByID.removeValue(forKey: key)
+                Self.pendingTrainLocationsByID.removeValue(forKey: key)
                 shouldPublishLiveMessages = true
             }
 
@@ -1069,10 +1067,7 @@ final class SignalRService {
     }
 
     private static func isActiveMapTrain(_ trainMessage: TrainMessage) -> Bool {
-        guard
-            let serviceTime = trainMessage.trainPosition?.geoJson.properties.serviceTime,
-            hasMapCoordinate(trainMessage)
-        else {
+        guard let serviceTime = trainMessage.trainLocation?.serviceTime, hasMapCoordinate(trainMessage) else {
             return false
         }
 
@@ -1080,24 +1075,21 @@ final class SignalRService {
     }
 
     private static func hasMapCoordinate(_ trainMessage: TrainMessage) -> Bool {
-        guard let coordinates = trainMessage.trainPosition?.geoJson.geometry.coordinates, coordinates.count >= 2 else {
+        guard trainMessage.trainLocation?.latitude != nil, trainMessage.trainLocation?.longitude != nil else {
             return false
         }
 
         return true
     }
 
-    private func liveTrainPositionKey(for trainPosition: TrainPosition) -> String {
-        let originDate = normalizedOriginDate(
-            trainPosition.geoJson.properties.originDate,
-            fallbackDate: trainPosition.geoJson.properties.serviceTime
-        ) ?? "unknown-date"
-        return "\(trainPosition.country)-\(trainPosition.geoJson.properties.trainNumber)-\(originDate)"
+    private func liveTrainLocationKey(for trainLocation: TrainLocation) -> String {
+        let originDate = normalizedOriginDate(nil, fallbackDate: trainLocation.serviceTime) ?? "unknown-date"
+        return "\(trainLocation.countryCode)-\(trainLocation.trainNumber)-\(originDate)"
     }
 
     private func publishLiveTrainMessages() {
         let liveTrainMessages = Self.liveTrainMessagesByID.values
-            .filter { $0.trainPosition != nil }
+            .filter { $0.trainLocation != nil }
             .sorted { lhs, rhs in
                 lhs.messageKey.localizedStandardCompare(rhs.messageKey) == .orderedAscending
             }
@@ -1105,7 +1097,7 @@ final class SignalRService {
         Self.broadcast { $0.onLiveTrainMessages?(liveTrainMessages) }
     }
 
-    private func mergedTrainMessage(_ trainMessage: TrainMessage, with trainPosition: TrainPosition?) -> TrainMessage {
+    private func mergedTrainMessage(_ trainMessage: TrainMessage, with trainLocation: TrainLocation?) -> TrainMessage {
         TrainMessage(
             id: trainMessage.id,
             countryCode: trainMessage.countryCode,
@@ -1120,7 +1112,7 @@ final class SignalRService {
             lineNumber: trainMessage.lineNumber,
             company: trainMessage.company,
             scheduled: trainMessage.scheduled,
-            trainPosition: trainPosition,
+            trainLocation: trainLocation,
             createdAt: trainMessage.createdAt,
             lastUpdatedAt: trainMessage.lastUpdatedAt
         )
@@ -1208,7 +1200,7 @@ private enum PendingRequest {
     case stations(String?)
     case stationMessages(String, String, String)
     case trainMessages(String?, Date)
-    case trainPositionsList(String, String, String)
+    case trainLocationsList(String, String, String)
     case trainMessage(String, String, String)
     case trainStations(String, String, String)
 }

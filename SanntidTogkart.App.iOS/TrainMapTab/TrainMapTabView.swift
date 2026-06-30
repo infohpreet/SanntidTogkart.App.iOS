@@ -100,7 +100,7 @@ struct TrainMapTabView: View {
                     )
                 }
             }
-            .onChange(of: selectedTrain?.trainPosition?.geoJson.geometry.coordinates) { _, _ in
+            .onChange(of: selectedTrain?.trainLocation?.id) { _, _ in
                 guard
                     let selectedTrain,
                     let coordinate = viewModel.mapCoordinate(for: selectedTrain)
@@ -2630,14 +2630,12 @@ private func displayLineNumber(for trainMessage: TrainMessage) -> String? {
 private func displayTrainNumber(for trainMessage: TrainMessage) -> String {
     normalizedText(trainMessage.trainNo)
         ?? normalizedText(trainMessage.advertisementTrainNo)
-        ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.trainNumber)
+        ?? normalizedText(trainMessage.trainLocation?.trainNumber)
         ?? "Tog"
 }
 
 private func displayCompany(for trainMessage: TrainMessage) -> String? {
     normalizedText(trainMessage.company)
-        ?? normalizedText(trainMessage.trainPosition?.toc)
-        ?? normalizedText(trainMessage.trainPosition?.geoJson.properties.operatorRef)
 }
 
 private func displayOriginTime(for trainMessage: TrainMessage) -> String {
@@ -2654,7 +2652,7 @@ private func displayOriginTime(for trainMessage: TrainMessage) -> String {
 }
 
 private func displayServiceTime(for trainMessage: TrainMessage) -> String {
-    guard let date = trainMessage.trainPosition?.geoJson.properties.serviceTime else {
+    guard let date = trainMessage.trainLocation?.serviceTime else {
         return "Ukjent"
     }
 
@@ -2667,14 +2665,11 @@ private func displayServiceTime(for trainMessage: TrainMessage) -> String {
 }
 
 private func displayCoordinateText(for trainMessage: TrainMessage) -> String {
-    guard
-        let coordinates = trainMessage.trainPosition?.geoJson.geometry.coordinates,
-        coordinates.count >= 2
-    else {
+    guard let coordinate = trainMessage.trainLocation?.coordinate else {
         return "Ukjent"
     }
 
-    return String(format: "%.5f, %.5f", coordinates[1], coordinates[0])
+    return String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
 }
 
 private func normalizedText(_ value: String?) -> String? {

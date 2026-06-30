@@ -608,8 +608,6 @@ private final class TrainRouteViewModel {
 
     var operatorText: String {
         normalizedText(trainMessage?.company)
-            ?? normalizedText(trainMessage?.trainPosition?.toc)
-            ?? normalizedText(trainMessage?.trainPosition?.geoJson.properties.operatorRef)
             ?? "Ukjent"
     }
 
