@@ -608,10 +608,7 @@ struct TrainMapTabView: View {
 
     private var markerTogglePanel: some View {
         HStack(spacing: 6) {
-            markerToggle(
-                systemImage: "tram.fill.tunnel",
-                isOn: $showsStationMarkers
-            )
+            stationMarkerToggle(isOn: $showsStationMarkers)
 
             markerToggle(
                 systemImage: "textformat",
@@ -626,6 +623,29 @@ struct TrainMapTabView: View {
             )
 
         }
+    }
+
+    private func stationMarkerToggle(isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 4) {
+            StationMapAnnotation(isHighlighted: false)
+                .scaleEffect(0.75)
+
+            Toggle("", isOn: Binding(
+                get: { isOn.wrappedValue },
+                set: { newValue in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isOn.wrappedValue = newValue
+                    }
+                }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .tint(.accentColor)
+            .scaleEffect(0.72)
+            .frame(width: 42)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
     }
 
     private var bottomControlBar: some View {
