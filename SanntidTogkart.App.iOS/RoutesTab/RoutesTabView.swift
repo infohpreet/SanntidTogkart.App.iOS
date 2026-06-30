@@ -43,7 +43,7 @@ struct RoutesTabView: View {
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("Ruter")
+            .navigationTitle("Tog")
             .searchable(text: $searchText, prompt: "Sok etter tog eller rute")
         }
         .task {

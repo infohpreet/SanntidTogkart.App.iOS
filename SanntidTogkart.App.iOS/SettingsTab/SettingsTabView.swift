@@ -33,16 +33,7 @@ struct SettingsTabView: View {
             NavigationLink {
                 RoutesTabView()
             } label: {
-                menuRow(title: "Ruter", systemImage: "arrow.triangle.swap")
-            }
-            .buttonStyle(.plain)
-
-            rowDivider
-
-            NavigationLink {
-                StationsTabView()
-            } label: {
-                menuRow(title: "Stasjoner", systemImage: "mappin.circle")
+                menuRow(title: "Tog", systemImage: "arrow.triangle.swap")
             }
             .buttonStyle(.plain)
 

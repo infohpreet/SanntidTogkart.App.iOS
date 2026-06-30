@@ -6,7 +6,6 @@ enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
     case trains
     case home
     case routes
-    case stations
     case settings
 
     var id: Self {
@@ -25,8 +24,6 @@ enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
             return "Hjem"
         case .routes:
             return "Ruter"
-        case .stations:
-            return "Stasjoner"
         case .settings:
             return "Mer"
         }
