@@ -281,6 +281,10 @@ private final class HomeTabViewModel {
                     return nil
                 }
 
+                guard !CommonService.isTrainMessageMappedStationCode(station.shortName) else {
+                    return nil
+                }
+
                 guard !favoriteStationKeys.contains(station.storageKey) else {
                     return nil
                 }

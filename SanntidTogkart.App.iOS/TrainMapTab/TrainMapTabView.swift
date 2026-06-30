@@ -1729,7 +1729,7 @@ private struct StationMapDotAnnotation: View {
     }
 
     private var iconColor: Color {
-        colorScheme == .dark ? .primary : .secondary
+        stationMarkerGreen
     }
 }
 
@@ -1804,19 +1804,23 @@ private struct StationMapAnnotation: View {
         ZStack {
             RoundedRectangle(cornerRadius: isHighlighted ? 6 : 5, style: .continuous)
                 .fill(Color.white.opacity(colorScheme == .dark ? 0.24 : 0.68))
-                .frame(width: isHighlighted ? 16 : 12, height: isHighlighted ? 16 : 12)
+                .frame(width: isHighlighted ? 20 : 16, height: isHighlighted ? 24 : 20)
+                .overlay {
+                    RoundedRectangle(cornerRadius: isHighlighted ? 6 : 5, style: .continuous)
+                        .stroke(Color.black, lineWidth: 1)
+                }
 
             Image(systemName: "tram.fill")
-                .font(isHighlighted ? .subheadline.weight(.bold) : .caption.weight(.bold))
+                .font(isHighlighted ? .caption.weight(.bold) : .caption2.weight(.bold))
                 .foregroundStyle(iconColor)
-                .frame(width: isHighlighted ? 16 : 12, height: isHighlighted ? 16 : 12)
+                .frame(width: isHighlighted ? 14 : 10, height: isHighlighted ? 14 : 10)
         }
         .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.42 : 0.64), radius: isHighlighted ? 3.2 : 2.6, y: 0)
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.52 : 0.24), radius: isHighlighted ? 3 : 2, y: 1)
     }
 
     private var iconColor: Color {
-        colorScheme == .dark ? .primary : .secondary
+        stationMarkerGreen
     }
 }
 
@@ -1863,6 +1867,8 @@ private func trainMarkerColor(for freightIdentifier: String?) -> Color {
         return .accentColor
     }
 }
+
+private let stationMarkerGreen = Color.orange
 
 private struct SelectedTrainCard: View {
     let train: TrainMessage

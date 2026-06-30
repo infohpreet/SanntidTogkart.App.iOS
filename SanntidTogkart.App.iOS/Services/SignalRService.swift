@@ -1054,16 +1054,7 @@ final class SignalRService {
     }
 
     private func remappedStationCode(for value: String?) -> String? {
-        guard let value else {
-            return nil
-        }
-
-        let normalizedCode = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard !normalizedCode.isEmpty else {
-            return value
-        }
-
-        return trainMessageStationCodeMappings[normalizedCode] ?? value
+        CommonService.remappedTrainMessageStationCode(for: value)
     }
 
     private static func isActiveMapTrain(_ trainMessage: TrainMessage) -> Bool {
@@ -1250,14 +1241,6 @@ private let dateOnlyFormatter: DateFormatter = {
     formatter.dateFormat = "yyyy-MM-dd"
     return formatter
 }()
-
-private let trainMessageStationCodeMappings: [String: String] = [
-    "LOD": "OSL",
-    "SUD": "DRM",
-    "KVB": "STV",
-    "BES": "SKØ",
-    "JAH": "JAR"
-]
 
 private struct FeedHubSignalRConfiguration {
     let hubURL: URL
