@@ -1868,7 +1868,7 @@ private func trainMarkerColor(for freightIdentifier: String?) -> Color {
     }
 }
 
-private let stationMarkerGreen = Color.orange
+private let stationMarkerGreen = Color(red: 0.22, green: 0.22, blue: 0.24)
 
 private struct SelectedTrainCard: View {
     let train: TrainMessage
