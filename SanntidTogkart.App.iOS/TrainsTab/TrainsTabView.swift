@@ -1,6 +1,8 @@
 import CoreLocation
 import Observation
 import SwiftUI
+import UIKit
+import UniformTypeIdentifiers
 
 struct TrainsTabView: View {
     @State private var favoritesStore = TrainStationFavoritesStore.shared
@@ -9,6 +11,11 @@ struct TrainsTabView: View {
     @State private var selectedStation: TraseStation?
     @State private var activeSwipeStationID: UUID?
     @State private var searchText = ""
+    @State private var draggedFavoriteStorageKey: String?
+    @State private var hasTriggeredDragStartHaptic = false
+    @State private var lastHapticDropTargetStorageKey: String?
+    @State private var favoriteRowWidth: CGFloat = 0
+    @State private var favoriteRowHeight: CGFloat = 0
     @State private var viewModel = TrainsTabViewModel()
 
     var body: some View {
@@ -104,10 +111,104 @@ struct TrainsTabView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader(title: "Favoritter", systemImage: "star.fill", tint: .yellow)
 
-            stationList(favoritesStore.stations, bullet: .favorite) { station in
-                favoritesStore.remove(station)
+            favoriteStationList
+        }
+    }
+
+    private var favoriteStationList: some View {
+        VStack(spacing: 0) {
+            stationDivider
+
+            ForEach(Array(favoritesStore.stations.enumerated()), id: \.element.id) { index, station in
+                SwipeDeleteIconRow(
+                    rowID: station.id,
+                    activeRowID: $activeSwipeStationID,
+                    onTap: {
+                        selectStation(station)
+                    },
+                    onDelete: {
+                        favoritesStore.remove(station)
+                    }
+                ) {
+                    stationTile(station, bullet: .favorite)
+                }
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear {
+                                favoriteRowHeight = max(favoriteRowHeight, proxy.size.height)
+                            }
+                            .onChange(of: proxy.size.height) { _, newHeight in
+                                favoriteRowHeight = max(favoriteRowHeight, newHeight)
+                            }
+                    }
+                }
+                .draggable(station.storageKey) {
+                    favoriteDragPreview(for: station)
+                }
+                .onLongPressGesture(
+                    minimumDuration: 0.01,
+                    maximumDistance: .infinity,
+                    pressing: { isPressing in
+                        if isPressing {
+                            draggedFavoriteStorageKey = station.storageKey
+                            if !hasTriggeredDragStartHaptic {
+                                let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+                                feedbackGenerator.prepare()
+                                feedbackGenerator.impactOccurred()
+                                hasTriggeredDragStartHaptic = true
+                            }
+                        } else {
+                            hasTriggeredDragStartHaptic = false
+                        }
+                    },
+                    perform: {}
+                )
+                .onDrop(
+                    of: [UTType.plainText],
+                    delegate: FavoriteStationDropDelegate(
+                        targetStorageKey: station.storageKey,
+                        isLastTarget: index == favoritesStore.stations.count - 1,
+                        targetRowHeight: max(favoriteRowHeight, 44),
+                        favoritesStore: favoritesStore,
+                        lastHapticDropTargetStorageKey: $lastHapticDropTargetStorageKey,
+                        draggedFavoriteStorageKey: $draggedFavoriteStorageKey
+                    )
+                )
+
+                if index < favoritesStore.stations.count - 1 {
+                    stationDivider
+                }
+            }
+
+            stationDivider
+        }
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        favoriteRowWidth = proxy.size.width
+                    }
+                    .onChange(of: proxy.size.width) { _, newWidth in
+                        favoriteRowWidth = newWidth
+                    }
             }
         }
+    }
+
+    @ViewBuilder
+    private func favoriteDragPreview(for station: TraseStation) -> some View {
+        let previewWidth = max(favoriteRowWidth, 320)
+        let previewHeight = max(favoriteRowHeight, 44)
+
+        stationTile(station, bullet: .favorite)
+            .frame(width: previewWidth, height: previewHeight, alignment: .leading)
+            .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AppTheme.border, lineWidth: 1)
+            }
+            .scaleEffect(1.18)
     }
 
     private func stationSection(
@@ -369,6 +470,49 @@ private enum StationBulletStyle {
     case nearest
     case favorite
     case recent
+}
+
+private struct FavoriteStationDropDelegate: DropDelegate {
+    let targetStorageKey: String
+    let isLastTarget: Bool
+    let targetRowHeight: CGFloat
+    let favoritesStore: TrainStationFavoritesStore
+    @Binding var lastHapticDropTargetStorageKey: String?
+    @Binding var draggedFavoriteStorageKey: String?
+
+    func dropEntered(info: DropInfo) {
+        guard
+            let draggedFavoriteStorageKey,
+            draggedFavoriteStorageKey != targetStorageKey
+        else {
+            return
+        }
+
+        let isDropInLowerHalf = info.location.y > targetRowHeight * 0.5
+        let placeAfterTarget = isLastTarget && isDropInLowerHalf
+
+        if lastHapticDropTargetStorageKey != targetStorageKey {
+            UISelectionFeedbackGenerator().selectionChanged()
+            lastHapticDropTargetStorageKey = targetStorageKey
+        }
+
+        favoritesStore.moveStation(
+            draggedStorageKey: draggedFavoriteStorageKey,
+            to: targetStorageKey,
+            placeAfterTarget: placeAfterTarget
+        )
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        lastHapticDropTargetStorageKey = nil
+        draggedFavoriteStorageKey = nil
+        return true
+    }
 }
 
 private struct SwipeDeleteIconRow<Content: View>: View {

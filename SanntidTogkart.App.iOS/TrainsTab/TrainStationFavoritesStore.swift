@@ -41,6 +41,35 @@ final class TrainStationFavoritesStore {
         persist()
     }
 
+    func moveStation(
+        draggedStorageKey: String,
+        to targetStorageKey: String,
+        placeAfterTarget: Bool = false
+    ) {
+        guard
+            draggedStorageKey != targetStorageKey,
+            let fromIndex = stations.firstIndex(where: { $0.storageKey == draggedStorageKey }),
+            stations.contains(where: { $0.storageKey == targetStorageKey })
+        else {
+            return
+        }
+
+        var updatedStations = stations
+        let draggedStation = updatedStations.remove(at: fromIndex)
+
+        guard let adjustedTargetIndex = updatedStations.firstIndex(where: { $0.storageKey == targetStorageKey }) else {
+            return
+        }
+
+        let baseInsertionIndex = placeAfterTarget ? adjustedTargetIndex + 1 : adjustedTargetIndex
+        let insertionIndex = min(max(0, baseInsertionIndex), updatedStations.count)
+
+        updatedStations.insert(draggedStation, at: insertionIndex)
+
+        stations = updatedStations
+        persist()
+    }
+
     private func load() {
         guard let data = UserDefaults.standard.data(forKey: defaultsKey) else {
             stations = []
