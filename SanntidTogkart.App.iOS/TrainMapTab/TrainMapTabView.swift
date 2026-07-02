@@ -1741,11 +1741,11 @@ private struct StationMapDotAnnotation: View {
         ZStack {
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(Color.white.opacity(colorScheme == .dark ? 0.28 : 0.72))
-                .frame(width: 7, height: 7)
+                .frame(width: 6, height: 6)
 
             Circle()
                 .fill(iconColor)
-                .frame(width: 7, height: 7)
+                .frame(width: 6, height: 6)
                 .overlay {
                     Circle()
                         .stroke(Color.white.opacity(colorScheme == .dark ? 0.85 : 1.0), lineWidth: 1.5)
@@ -1767,7 +1767,7 @@ private struct TrainMapDotAnnotation: View {
     var body: some View {
         Circle()
             .fill(isHighlighted ? Color.orange : trainMarkerColor(for: freightIdentifier))
-            .frame(width: isHighlighted ? 9 : 7, height: isHighlighted ? 9 : 7)
+            .frame(width: isHighlighted ? 15 : 12, height: isHighlighted ? 15 : 12)
             .overlay {
                 Circle()
                     .stroke(Color.white.opacity(0.95), lineWidth: 2)
@@ -1850,8 +1850,8 @@ private struct StationMapAnnotation: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: isHighlighted ? 6 : 5, style: .continuous)
-                .fill(Color.white.opacity(colorScheme == .dark ? 0.24 : 0.68))
-                .frame(width: isHighlighted ? 20 : 16, height: isHighlighted ? 24 : 20)
+                .fill(Color.orange)
+                .frame(width: isHighlighted ? 18 : 14, height: isHighlighted ? 22 : 18)
                 .overlay {
                     RoundedRectangle(cornerRadius: isHighlighted ? 6 : 5, style: .continuous)
                         .stroke(Color.black, lineWidth: 1)
@@ -1860,14 +1860,14 @@ private struct StationMapAnnotation: View {
             Image(systemName: "tram.fill")
                 .font(isHighlighted ? .caption.weight(.bold) : .caption2.weight(.bold))
                 .foregroundStyle(iconColor)
-                .frame(width: isHighlighted ? 14 : 10, height: isHighlighted ? 14 : 10)
+                .frame(width: isHighlighted ? 10 : 6, height: isHighlighted ? 10 : 6)
         }
         .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.42 : 0.64), radius: isHighlighted ? 3.2 : 2.6, y: 0)
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.52 : 0.24), radius: isHighlighted ? 3 : 2, y: 1)
     }
 
     private var iconColor: Color {
-        stationMarkerGreen
+        .black
     }
 }
 
@@ -1915,7 +1915,7 @@ private func trainMarkerColor(for freightIdentifier: String?) -> Color {
     }
 }
 
-private let stationMarkerGreen = Color(red: 0.22, green: 0.22, blue: 0.24)
+private let stationMarkerGreen = Color.orange
 
 private struct SelectedTrainCard: View {
     let train: TrainMessage
