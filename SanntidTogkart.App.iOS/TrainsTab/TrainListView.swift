@@ -455,6 +455,10 @@ private final class TrainListViewModel {
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
     private var stations: [TraseStation] = []
+    private var requestedStationKey: String?
+    private var requestedStationShortName: String?
+    private var requestedStationName: String?
+    private var requestedCountryCode: String?
     var errorMessage: String?
     var isLoading = false
 
@@ -494,7 +498,8 @@ private final class TrainListViewModel {
         }
 
         service.onStationMessagesUpcoming = { [weak self] stationMessages in
-            guard let self else {
+            guard let self,
+                  self.matchesRequestedStation(stationMessages) else {
                 return
             }
 
@@ -628,6 +633,10 @@ private final class TrainListViewModel {
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]
+        requestedStationKey = station.storageKey
+        requestedStationShortName = stationShortName
+        requestedStationName = station.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        requestedCountryCode = station.countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
 
         await service.start()
         await service.requestStations()
@@ -636,6 +645,57 @@ private final class TrainListViewModel {
             stationShortName: stationShortName,
             count: upcomingRequestCount
         )
+    }
+
+    private func matchesRequestedStation(_ stationMessages: [StationMessage]) -> Bool {
+        guard requestedStationKey != nil else {
+            return false
+        }
+
+        guard !stationMessages.isEmpty else {
+            // Keep first-load empty-state support without allowing unrelated background updates to clear loaded data.
+            return isLoading
+        }
+
+        guard
+            let requestedStationKey,
+            let requestedStationShortName,
+            let requestedStationName,
+            let requestedCountryCode,
+            let firstMessage = stationMessages.first
+        else {
+            return false
+        }
+
+        let normalizedRequestedCountryCode = requestedCountryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let normalizedResponseCountryCode = firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+
+        guard normalizedRequestedCountryCode == normalizedResponseCountryCode else {
+            return false
+        }
+
+        let normalizedResponseStation = firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if normalizedResponseStation.compare(requestedStationShortName, options: .caseInsensitive) == .orderedSame {
+            return true
+        }
+
+        if normalizedResponseStation.compare(requestedStationName, options: .caseInsensitive) == .orderedSame {
+            return true
+        }
+
+        if let responseStation = stations.first(where: { station in
+            station.countryCode.compare(normalizedResponseCountryCode, options: .caseInsensitive) == .orderedSame
+                && (
+                    station.shortName.compare(normalizedResponseStation, options: .caseInsensitive) == .orderedSame
+                        || station.name.compare(normalizedResponseStation, options: .caseInsensitive) == .orderedSame
+                        || (station.plcCode?.compare(normalizedResponseStation, options: .caseInsensitive) == .orderedSame)
+                )
+        }) {
+            return responseStation.storageKey == requestedStationKey
+        }
+
+        return false
     }
 
     private func requestTrainDetailsForInitialView(for stationMessages: [StationMessage]) {
