@@ -477,8 +477,9 @@ struct TrainMapTabView: View {
                 )
 
             if let routeEndCoordinate = viewModel.selectedTrainFutureRouteCoordinates.last {
-                Annotation("", coordinate: routeEndCoordinate) {
+                Annotation("", coordinate: routeEndCoordinate, anchor: .bottom) {
                     RouteEndAnnotation()
+                        .zIndex(4)
                 }
             }
         }
@@ -1837,6 +1838,7 @@ private struct RouteEndAnnotation: View {
                 .font(.system(size: 7, weight: .bold))
                 .foregroundStyle(.white)
         }
+        .offset(y: -16)
         .shadow(color: Color.black.opacity(0.14), radius: 6, y: 2)
     }
 }
