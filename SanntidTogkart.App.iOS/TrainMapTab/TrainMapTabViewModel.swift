@@ -240,7 +240,7 @@ final class TrainMapTabViewModel {
 
     func stationsInVisibleRegion(_ region: MKCoordinateRegion, limit: Int) -> [TraseStation] {
         Array(
-            mappableStations
+            mappableStations.lazy
                 .filter { station in
                     region.contains(latitude: station.latitude, longitude: station.longitude)
                 }
@@ -250,9 +250,9 @@ final class TrainMapTabViewModel {
 
     func trainsInVisibleRegion(_ region: MKCoordinateRegion, limit: Int) -> [TrainMessage] {
         Array(
-            trainMessages
+            trainMessages.lazy
                 .filter { trainMessage in
-                    guard let coordinate = mapCoordinate(for: trainMessage) else {
+                    guard let coordinate = self.mapCoordinate(for: trainMessage) else {
                         return false
                     }
 

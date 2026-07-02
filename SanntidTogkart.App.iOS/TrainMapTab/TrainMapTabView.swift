@@ -77,12 +77,22 @@ struct TrainMapTabView: View {
                 MapPitchToggle()
             }
             .onMapCameraChange { context in
-                let region = expandedRegion(for: context.region)
-                let span = context.region.span
-                visibleRegion = region
-                currentMapSpan = span
-                isZoomedOut = span.latitudeDelta > 0.7 || span.longitudeDelta > 0.7
-                isCountryZoomedOut = span.latitudeDelta > 2.0 || span.longitudeDelta > 7.0
+                let previousRegion = visibleRegion
+                let nextRegion = expandedRegion(for: context.region)
+                let nextSpan = context.region.span
+                let nextIsZoomedOut = nextSpan.latitudeDelta > 0.7 || nextSpan.longitudeDelta > 0.7
+                let nextIsCountryZoomedOut = nextSpan.latitudeDelta > 2.0 || nextSpan.longitudeDelta > 7.0
+                let zoomBucketChanged = nextIsZoomedOut != isZoomedOut || nextIsCountryZoomedOut != isCountryZoomedOut
+
+                currentMapSpan = nextSpan
+                visibleRegion = nextRegion
+                isZoomedOut = nextIsZoomedOut
+                isCountryZoomedOut = nextIsCountryZoomedOut
+
+                guard zoomBucketChanged || hasSignificantMapChange(from: previousRegion, to: nextRegion) else {
+                    return
+                }
+
                 refreshRenderedMapEntities()
             }
             .onChange(of: locationManager.currentLocation) { _, newValue in
@@ -831,6 +841,18 @@ struct TrainMapTabView: View {
                 longitudeDelta: region.span.longitudeDelta * 1.2
             )
         )
+    }
+
+    private func hasSignificantMapChange(from previous: MKCoordinateRegion, to current: MKCoordinateRegion) -> Bool {
+        let latitudeThreshold = max(0.001, previous.span.latitudeDelta * 0.12)
+        let longitudeThreshold = max(0.001, previous.span.longitudeDelta * 0.12)
+        let spanLatitudeThreshold = max(0.0005, previous.span.latitudeDelta * 0.08)
+        let spanLongitudeThreshold = max(0.0005, previous.span.longitudeDelta * 0.08)
+
+        return abs(previous.center.latitude - current.center.latitude) > latitudeThreshold
+            || abs(previous.center.longitude - current.center.longitude) > longitudeThreshold
+            || abs(previous.span.latitudeDelta - current.span.latitudeDelta) > spanLatitudeThreshold
+            || abs(previous.span.longitudeDelta - current.span.longitudeDelta) > spanLongitudeThreshold
     }
 
     private func selectTrain(_ train: TrainMessage) {
@@ -1876,29 +1898,21 @@ private struct TrainMapAnnotation: View {
     let isHighlighted: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(markerColor)
-                    .frame(width: isHighlighted ? 28 : 24, height: isHighlighted ? 28 : 24)
-                    .overlay {
-                        Circle()
-                            .stroke(Color.white, lineWidth: 2)
-                    }
+        ZStack {
+            RoundedRectangle(cornerRadius: isHighlighted ? 5 : 4, style: .continuous)
+                .fill(Color.accentColor)
+                .frame(width: isHighlighted ? 26 : 22, height: isHighlighted ? 17 : 14)
+                .overlay {
+                    RoundedRectangle(cornerRadius: isHighlighted ? 5 : 4, style: .continuous)
+                        .stroke(Color.white, lineWidth: 1)
+                }
 
-                Image(systemName: "tram.fill")
-                    .font(isHighlighted ? .caption.bold() : .caption2.bold())
-                    .foregroundStyle(.white)
-                    .padding(isHighlighted ? 5 : 4)
-            }
-            .overlay(alignment: .bottom) {
-                Triangle()
-                    .fill(Color.white)
-                    .frame(width: isHighlighted ? 10 : 8, height: isHighlighted ? 6 : 5)
-                    .offset(y: isHighlighted ? 5 : 4)
-            }
-            .shadow(color: markerColor.opacity(0.30), radius: isHighlighted ? 7 : 4, y: 2)
+            Image(systemName: "train.side.front.car")
+                .font(isHighlighted ? .subheadline.weight(.bold) : .caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: isHighlighted ? 15 : 12, height: isHighlighted ? 15 : 12)
         }
+        .shadow(color: markerColor.opacity(0.30), radius: isHighlighted ? 7 : 4, y: 2)
     }
 
     private var markerColor: Color {
