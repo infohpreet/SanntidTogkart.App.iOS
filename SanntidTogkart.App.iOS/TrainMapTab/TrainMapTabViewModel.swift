@@ -135,6 +135,10 @@ final class TrainMapTabViewModel {
                 return
             }
 
+            guard self.matchesSelectedTrainLocationRequest(trainLocations) else {
+                return
+            }
+
             let routeCoordinates = trainLocations
                 .sorted { lhs, rhs in
                     lhs.serviceTime < rhs.serviceTime
@@ -726,6 +730,27 @@ final class TrainMapTabViewModel {
         }
 
         let returnedTrainNo = firstStationMessage.trainNo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let requestedTrainNo = selectedTrainRouteRequest.trainNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        let advertisementTrainNo = selectedTrainRouteRequest.advertisementTrainNo?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return returnedTrainNo == requestedTrainNo || (!advertisementTrainNo.isEmpty && returnedTrainNo == advertisementTrainNo)
+    }
+
+    private func matchesSelectedTrainLocationRequest(_ trainLocations: [TrainLocation]) -> Bool {
+        guard let selectedTrainRouteRequest else {
+            return false
+        }
+
+        guard let firstTrainLocation = trainLocations.first else {
+            // Avoid accepting unrelated empty broadcasts from other requests.
+            return false
+        }
+
+        guard firstTrainLocation.countryCode.localizedCaseInsensitiveCompare(selectedTrainRouteRequest.countryCode) == .orderedSame else {
+            return false
+        }
+
+        let returnedTrainNo = firstTrainLocation.trainNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         let requestedTrainNo = selectedTrainRouteRequest.trainNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         let advertisementTrainNo = selectedTrainRouteRequest.advertisementTrainNo?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 

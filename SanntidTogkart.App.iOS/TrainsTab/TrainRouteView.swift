@@ -833,7 +833,8 @@ private final class TrainRouteViewModel {
         }
 
         guard !stationMessages.isEmpty else {
-            return true
+            // Allow empty payload only while awaiting the first route response for this screen.
+            return isLoading && self.stationMessages.isEmpty
         }
 
         return stationMessages.contains { stationMessage in
