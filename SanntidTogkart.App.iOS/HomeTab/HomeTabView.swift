@@ -621,6 +621,7 @@ private enum HomeFavoriteBoardStyle {
 @MainActor
 @Observable
 private final class HomeFavoriteStationBoardViewModel {
+    private let upcomingRequestCount = 10
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
     var errorMessage: String?
@@ -653,7 +654,7 @@ private final class HomeFavoriteStationBoardViewModel {
     }
 
     private func configureBindings() {
-        service.onStationMessages = { [weak self] stationMessages in
+                service.onStationMessagesUpcoming = { [weak self] stationMessages in
             guard let self,
                   self.matchesRequestedStation(stationMessages) else {
                 return
@@ -702,10 +703,10 @@ private final class HomeFavoriteStationBoardViewModel {
             return
         }
 
-        await service.requestStationMessages(
+        await service.requestStationMessagesUpcoming(
             countryCode: requestedCountryCode,
             stationShortName: requestedStationShortName,
-            originDate: AppTime.localDateString()
+            count: upcomingRequestCount
         )
         requestTrainDetailsForVisibleCards()
     }
@@ -770,10 +771,10 @@ private final class HomeFavoriteStationBoardViewModel {
         trainMessagesByKey = [:]
 
         await service.start()
-        await service.requestStationMessages(
+        await service.requestStationMessagesUpcoming(
             countryCode: station.countryCode,
             stationShortName: stationShortName,
-            originDate: AppTime.localDateString()
+            count: upcomingRequestCount
         )
     }
 

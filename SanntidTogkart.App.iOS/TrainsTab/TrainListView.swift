@@ -450,7 +450,8 @@ private enum TrainListBoardStyle {
 @MainActor
 @Observable
 private final class TrainListViewModel {
-    private let maxUpcomingMessages = 20
+    private let maxUpcomingMessages = 50
+    private let upcomingRequestCount = 150
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
     private var stations: [TraseStation] = []
@@ -492,7 +493,7 @@ private final class TrainListViewModel {
             self.stations = stations
         }
 
-        service.onStationMessages = { [weak self] stationMessages in
+        service.onStationMessagesUpcoming = { [weak self] stationMessages in
             guard let self else {
                 return
             }
@@ -630,10 +631,10 @@ private final class TrainListViewModel {
 
         await service.start()
         await service.requestStations()
-        await service.requestStationMessages(
+        await service.requestStationMessagesUpcoming(
             countryCode: station.countryCode,
             stationShortName: stationShortName,
-            originDate: AppTime.localDateString()
+            count: upcomingRequestCount
         )
     }
 

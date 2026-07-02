@@ -9,6 +9,7 @@ final class SignalRService {
     var onMetrics: ((TrainMetrics) -> Void)?
     var onStations: (([TraseStation]) -> Void)?
     var onStationMessages: (([StationMessage]) -> Void)?
+    var onStationMessagesUpcoming: (([StationMessage]) -> Void)?
     var onTrainStations: (([StationMessage]) -> Void)?
     var onTrainMessages: (([TrainMessage]) -> Void)?
     var onTrainMessage: ((TrainMessage) -> Void)?
@@ -330,6 +331,29 @@ final class SignalRService {
         }
     }
 
+    func requestStationMessagesUpcoming(
+        countryCode: String,
+        stationShortName: String,
+        count: Int
+    ) async {
+        guard let webSocketTask = Self.webSocketTask else {
+            Self.pendingRequests.append(.stationMessagesUpcoming(countryCode, stationShortName, count))
+            await start()
+            return
+        }
+
+        do {
+            try await sendGetStationMessagesUpcoming(
+                countryCode: countryCode,
+                stationShortName: stationShortName,
+                count: count,
+                on: webSocketTask
+            )
+        } catch {
+            reportError(error, context: "requestStationMessagesUpcoming")
+        }
+    }
+
     private func runConnectionLoop() async {
         while !Task.isCancelled && !Self.isStopped {
             do {
@@ -564,6 +588,24 @@ final class SignalRService {
         )
     }
 
+    private func sendGetStationMessagesUpcoming(
+        countryCode: String,
+        stationShortName: String,
+        count: Int,
+        on webSocketTask: URLSessionWebSocketTask
+    ) async throws {
+        try await sendInvocation(
+            invocationID: "get-station-messages-upcoming-\(countryCode)-\(stationShortName)-\(count)",
+            target: "GetStationMessagesUpcoming",
+            arguments: [
+                .string(countryCode),
+                .string(stationShortName),
+                .int(count)
+            ],
+            on: webSocketTask
+        )
+    }
+
     private func sendInvocation(
         invocationID: String,
         target: String,
@@ -627,6 +669,13 @@ final class SignalRService {
                     countryCode: countryCode,
                     stationShortName: stationShortName,
                     originDate: originDate,
+                    on: webSocketTask
+                )
+            case .stationMessagesUpcoming(let countryCode, let stationShortName, let count):
+                try await sendGetStationMessagesUpcoming(
+                    countryCode: countryCode,
+                    stationShortName: stationShortName,
+                    count: count,
                     on: webSocketTask
                 )
             }
@@ -770,6 +819,20 @@ final class SignalRService {
                     } catch {
                         await MainActor.run {
                             self.logDecodingFailure(prefix: "SignalR ReceiveStationMessages", error: error, data: argumentData)
+                        }
+                    }
+                }
+            case "ReceiveStationMessagesUpcoming":
+                let decoder = self.decoder
+                Task.detached(priority: .userInitiated) {
+                    do {
+                        let stationMessages = try decoder.decode([StationMessage].self, from: argumentData)
+                        await MainActor.run {
+                            Self.broadcast { $0.onStationMessagesUpcoming?(stationMessages) }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            self.logDecodingFailure(prefix: "SignalR ReceiveStationMessagesUpcoming", error: error, data: argumentData)
                         }
                     }
                 }
@@ -1190,6 +1253,7 @@ private enum PendingRequest {
     case trainMetrics
     case stations(String?)
     case stationMessages(String, String, String)
+    case stationMessagesUpcoming(String, String, Int)
     case trainMessages(String?, Date)
     case trainLocationsList(String, String, String)
     case trainMessage(String, String, String)
@@ -1274,12 +1338,15 @@ private struct SignalRInvocationMessage: Encodable {
 
 private enum SignalRArgument: Encodable {
     case string(String)
+    case int(Int)
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
 
         switch self {
         case .string(let value):
+            try container.encode(value)
+        case .int(let value):
             try container.encode(value)
         }
     }
