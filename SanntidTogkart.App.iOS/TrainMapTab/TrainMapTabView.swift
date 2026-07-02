@@ -475,6 +475,12 @@ struct TrainMapTabView: View {
                     Color.accentColor,
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [1, 3])
                 )
+
+            if let routeEndCoordinate = viewModel.selectedTrainFutureRouteCoordinates.last {
+                Annotation("", coordinate: routeEndCoordinate) {
+                    RouteEndAnnotation()
+                }
+            }
         }
     }
 
@@ -1811,6 +1817,25 @@ private struct RouteStartAnnotation: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(.thinMaterial, in: Capsule())
+        }
+        .shadow(color: Color.black.opacity(0.14), radius: 6, y: 2)
+    }
+}
+
+private struct RouteEndAnnotation: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.accentColor)
+                .frame(width: 18, height: 18)
+                .overlay {
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                }
+
+            Image(systemName: "flag.checkered")
+                .font(.system(size: 7, weight: .bold))
+                .foregroundStyle(.white)
         }
         .shadow(color: Color.black.opacity(0.14), radius: 6, y: 2)
     }
