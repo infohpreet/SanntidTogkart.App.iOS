@@ -54,6 +54,15 @@ struct SettingsTabView: View {
                 menuRow(title: "Innstillinger", systemImage: "slider.horizontal.3")
             }
             .buttonStyle(.plain)
+
+            rowDivider
+
+            NavigationLink {
+                FreightTrainOperatorsView()
+            } label: {
+                menuRow(title: "Godstogoperatører", systemImage: "list.bullet")
+            }
+            .buttonStyle(.plain)
         }
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8))
         .overlay {

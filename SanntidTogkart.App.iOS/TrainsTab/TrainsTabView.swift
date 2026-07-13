@@ -5,6 +5,8 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct TrainsTabView: View {
+    private let maxVisibleRecentStations = 5
+
     @State private var favoritesStore = TrainStationFavoritesStore.shared
     @State private var lastUsedStore = TrainStationLastUsedStore.shared
     @State private var isTrainListPresented = false
@@ -65,8 +67,19 @@ struct TrainsTabView: View {
         Set(favoritesStore.stations.map(\.storageKey))
     }
 
+    private var nearestStationKeys: Set<String> {
+        Set(viewModel.nearestStations.map(\.storageKey))
+    }
+
     private var recentStationsExcludingFavorites: [TraseStation] {
-        lastUsedStore.stations.filter { !favoriteStationKeys.contains($0.storageKey) }
+        Array(
+            lastUsedStore.stations
+                .filter { station in
+                    !favoriteStationKeys.contains(station.storageKey)
+                        && !nearestStationKeys.contains(station.storageKey)
+                }
+                .prefix(maxVisibleRecentStations)
+        )
     }
 
     private var stationSections: some View {
@@ -807,7 +820,7 @@ private final class TrainsTabViewModel {
                     return nil
                 }
 
-                guard !CommonService.isTrainMessageMappedStationCode(station.shortName) else {
+                guard !CommonService.isIgnoredNearestStation(station) else {
                     return nil
                 }
 

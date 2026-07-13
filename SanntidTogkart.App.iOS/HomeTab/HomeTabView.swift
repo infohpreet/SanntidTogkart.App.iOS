@@ -281,7 +281,7 @@ private final class HomeTabViewModel {
                     return nil
                 }
 
-                guard !CommonService.isTrainMessageMappedStationCode(station.shortName) else {
+                guard !CommonService.isIgnoredNearestStation(station) else {
                     return nil
                 }
 

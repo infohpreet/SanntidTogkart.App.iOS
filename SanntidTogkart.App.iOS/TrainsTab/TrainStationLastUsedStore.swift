@@ -9,6 +9,7 @@ final class TrainStationLastUsedStore {
     private(set) var stations: [TraseStation] = []
 
     private let defaultsKey = "train_station_last_used"
+    private let maxStoredStations = 25
 
     private init() {
         load()
@@ -18,6 +19,7 @@ final class TrainStationLastUsedStore {
         let key = station.storageKey
         stations.removeAll { $0.storageKey == key }
         stations.insert(station, at: 0)
+        stations = Array(stations.prefix(maxStoredStations))
         persist()
     }
 
@@ -44,7 +46,7 @@ final class TrainStationLastUsedStore {
 
         do {
             let decodedStations = try JSONDecoder().decode([TraseStation].self, from: data)
-            stations = deduplicated(decodedStations)
+            stations = Array(deduplicated(decodedStations).prefix(maxStoredStations))
         } catch {
             stations = []
         }
