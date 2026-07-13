@@ -38,34 +38,36 @@ struct TrainRouteView: View {
     }
 
     var body: some View {
-        Group {
-            if viewModel.isLoading && viewModel.stationMessages.isEmpty {
-                ProgressView("Laster togrute...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let errorMessage = viewModel.errorMessage, viewModel.stationMessages.isEmpty {
-                ContentUnavailableView(
-                    "Kunne ikke hente togrute",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(errorMessage)
-                )
-            } else if viewModel.stationMessages.isEmpty {
-                ContentUnavailableView(
-                    "Ingen togrute",
-                    systemImage: "tram.fill.tunnel",
-                    description: Text("Ingen stasjoner ble returnert for dette toget.")
-                )
-            } else {
-                ScrollView {
+        ScrollView {
+            Group {
+                if viewModel.isLoading && viewModel.stationMessages.isEmpty {
+                    ProgressView("Laster togrute...")
+                        .frame(maxWidth: .infinity, minHeight: 320)
+                } else if let errorMessage = viewModel.errorMessage, viewModel.stationMessages.isEmpty {
+                    ContentUnavailableView(
+                        "Kunne ikke hente togrute",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(errorMessage)
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 320)
+                } else if viewModel.stationMessages.isEmpty {
+                    ContentUnavailableView(
+                        "Ingen togrute",
+                        systemImage: "tram.fill.tunnel",
+                        description: Text("Ingen stasjoner ble returnert for dette toget.")
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 320)
+                } else {
                     routeBoard
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .appReadableContentWidth()
-                }
-                .scrollIndicators(.hidden)
-                .refreshable {
-                    await refreshRoute()
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .appReadableContentWidth()
+        }
+        .scrollIndicators(.hidden)
+        .refreshable {
+            await refreshRoute()
         }
         .background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("\(direction.titlePrefix) \(viewModel.routeEndpointText(direction: direction, fallbackTitle: routeTitleFallback))")
