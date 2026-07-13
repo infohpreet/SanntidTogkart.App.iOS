@@ -1,3 +1,4 @@
+import Combine
 import Observation
 import SwiftUI
 
@@ -11,6 +12,9 @@ struct TrainRouteView: View {
 
     @State private var navigationCenter = AppNavigationCenter.shared
     @State private var viewModel: TrainRouteViewModel
+    @State private var minuteRefreshDate = AppTime.now
+
+    private let minuteRefreshTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     init(
         station: TraseStation,
@@ -83,6 +87,9 @@ struct TrainRouteView: View {
         }
         .task {
             await startRoute()
+        }
+        .onReceive(minuteRefreshTimer) { currentDate in
+            minuteRefreshDate = currentDate
         }
     }
 
@@ -215,11 +222,13 @@ struct TrainRouteView: View {
         ]
 
         return LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            routeMetadataItem(title: "Tognummer", value: viewModel.trainNumberText)
-            routeMetadataItem(title: "Togtype", value: viewModel.trainTypeText)
+            routeMetadataItem(title: "Reisetid", value: viewModel.totalTravelTimeText)
+            routeMetadataItem(title: "Gjenstår", value: viewModel.remainingTravelTimeText(referenceDate: minuteRefreshDate))
             routeMetadataItem(title: "Operatør", value: viewModel.operatorText)
             routeMetadataItem(title: "Stopp", value: "\(viewModel.stopCount)")
             routeMetadataItem(title: "Passering", value: "\(viewModel.passingCount)")
+            routeMetadataItem(title: "Togtype", value: viewModel.trainTypeText)
+            routeMetadataItem(title: "Tognummer", value: viewModel.trainNumberText)
         }
     }
 
@@ -625,6 +634,28 @@ private final class TrainRouteViewModel {
         passingCountCache
     }
 
+    var totalTravelTimeText: String {
+        guard let startDate = routeStartDate(),
+              let endDate = routeEndDate(),
+              endDate > startDate else {
+            return "-"
+        }
+
+        return durationText(from: startDate, to: endDate)
+    }
+
+    func remainingTravelTimeText(referenceDate: Date) -> String {
+        guard let endDate = routeEndDate() else {
+            return "-"
+        }
+
+        if endDate <= referenceDate {
+            return "0 min"
+        }
+
+        return durationText(from: referenceDate, to: endDate)
+    }
+
     var currentRouteIndex: Int {
         latestPastRouteIndex ?? 0
     }
@@ -710,6 +741,42 @@ private final class TrainRouteViewModel {
         return selectedIndexes
             .sorted()
             .map { stopMessages[stopMessages.index(stopMessages.startIndex, offsetBy: $0)] }
+    }
+
+    private func routeStartDate() -> Date? {
+        stationMessages
+            .compactMap { routePlannedDate(for: $0) }
+            .min()
+    }
+
+    private func routeEndDate() -> Date? {
+        stationMessages
+            .compactMap { routePlannedDate(for: $0) }
+            .max()
+    }
+
+    private func routePlannedDate(for stationMessage: StationMessage) -> Date? {
+        stationMessage.eta
+            ?? stationMessage.etd
+            ?? stationMessage.sta
+            ?? stationMessage.std
+    }
+
+    private func durationText(from startDate: Date, to endDate: Date) -> String {
+        let totalMinutes = Int(ceil(endDate.timeIntervalSince(startDate) / 60))
+        let clampedMinutes = max(totalMinutes, 0)
+        let hours = clampedMinutes / 60
+        let minutes = clampedMinutes % 60
+
+        if hours == 0 {
+            return "\(minutes) min"
+        }
+
+        if minutes == 0 {
+            return "\(hours) t"
+        }
+
+        return "\(hours) t \(minutes) min"
     }
 
     private func routeReferenceDate(for stationMessage: StationMessage) -> Date? {
