@@ -377,6 +377,14 @@ private struct HomeFavoriteStationBoard: View {
         Array(viewModel.departureMessages.prefix(3))
     }
 
+    private var stationFilter: TrainListStationFilter {
+        filterStore.filter(for: station.storageKey)
+    }
+
+    private var hasActiveStationFilter: Bool {
+        stationFilter.lineNumber != nil || stationFilter.track != nil
+    }
+
     private var stationHeader: some View {
         Button(action: onSelectStation) {
             HStack(spacing: 12) {
@@ -394,6 +402,10 @@ private struct HomeFavoriteStationBoard: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
+
+                    if hasActiveStationFilter {
+                        filterSummaryRow
+                    }
                 }
 
                 Spacer(minLength: 8)
@@ -406,6 +418,31 @@ private struct HomeFavoriteStationBoard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var filterSummaryRow: some View {
+        HStack(spacing: 6) {
+            if let lineNumber = stationFilter.lineNumber,
+               !lineNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                filterValueBadge(title: "Linje", value: lineNumber)
+            }
+
+            if let track = stationFilter.track,
+               !track.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                filterValueBadge(title: "Spor", value: track)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private func filterValueBadge(title: String, value: String) -> some View {
+        Text("\(title): \(value)")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(AppTheme.background, in: Capsule(style: .continuous))
     }
 
     private var departureBoard: some View {
