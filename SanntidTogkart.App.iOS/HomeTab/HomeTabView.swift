@@ -387,32 +387,41 @@ private struct HomeFavoriteStationBoard: View {
 
     private var stationHeader: some View {
         Button(action: onSelectStation) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(station.name)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .layoutPriority(1)
-
-                    if let distanceText {
-                        Text(distanceText)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(station.name)
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
+                            .truncationMode(.tail)
+                            .layoutPriority(1)
+
+                        if let distanceText {
+                            Text(distanceText)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
 
-                    if hasActiveStationFilter {
-                        filterSummaryRow
-                    }
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
 
-                Spacer(minLength: 8)
+                if hasActiveStationFilter {
+                    Rectangle()
+                        .fill(HomeFavoriteBoardStyle.divider)
+                        .frame(height: 1)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, -16)
+                        .padding(.vertical, 12)
 
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    filterSummaryRow
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -432,7 +441,6 @@ private struct HomeFavoriteStationBoard: View {
                 filterValueBadge(title: "Spor", value: track)
             }
         }
-        .padding(.top, 2)
     }
 
     private func filterValueBadge(title: String, value: String) -> some View {
@@ -1051,10 +1059,6 @@ private final class HomeFavoriteStationBoardViewModel {
         }
 
         return TrainListStationFilterStore.shared.filter(for: requestedStationKey)
-    }
-
-    private func lineFilterValue(for stationMessage: StationMessage) -> String? {
-        lineFilterValues(for: stationMessage).first
     }
 
     private func lineFilterValues(for stationMessage: StationMessage) -> [String] {

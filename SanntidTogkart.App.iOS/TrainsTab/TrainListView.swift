@@ -1074,10 +1074,6 @@ private final class TrainListViewModel {
         return true
     }
 
-    private func lineNumberFilterValue(for stationMessage: StationMessage) -> String? {
-        lineFilterValues(for: stationMessage).first
-    }
-
     private func lineFilterValues(for stationMessage: StationMessage) -> [String] {
         var values: [String] = []
 

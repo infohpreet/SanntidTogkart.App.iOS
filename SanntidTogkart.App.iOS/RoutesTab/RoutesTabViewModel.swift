@@ -13,6 +13,7 @@ final class RoutesTabViewModel {
     private let service: SignalRService
     private var hasStarted = false
     private var rawMessages: [TrainMessage] = []
+    private var allMessages: [RouteMessage] = []
     private var stations: [TraseStation] = []
     private var stationNameLookup: [String: String] = [:]
     private var hasRequestedStations = false
@@ -120,7 +121,7 @@ final class RoutesTabViewModel {
             return
         }
 
-        filteredMessages = messages.filter { message in
+        filteredMessages = allMessages.filter { message in
             message.searchableText.localizedCaseInsensitiveContains(query)
         }
     }
@@ -142,6 +143,7 @@ final class RoutesTabViewModel {
 
     private func publishMessagesIfReady() {
         guard !rawMessages.isEmpty else {
+            allMessages = []
             messages = []
             filteredMessages = []
             isLoading = false
@@ -154,7 +156,7 @@ final class RoutesTabViewModel {
             return
         }
 
-        messages = rawMessages.reversed().map { message in
+        allMessages = rawMessages.reversed().map { message in
             let resolvedOrigin = resolvedStationName(for: message.origin, countryCode: message.countryCode, using: stationNameLookup)
             let resolvedDestination = resolvedStationName(for: message.destination, countryCode: message.countryCode, using: stationNameLookup)
             let searchableText = [
@@ -177,9 +179,18 @@ final class RoutesTabViewModel {
                 searchableText: searchableText
             )
         }
+        messages = allMessages.filter { isUpcoming($0) }
         applySearch()
         errorMessage = nil
         isLoading = false
+    }
+
+    private func isUpcoming(_ message: RouteMessage) -> Bool {
+        guard let originTime = message.originTime else {
+            return true
+        }
+
+        return originTime >= AppTime.now
     }
 
     private func makeStationNameLookup(from stations: [TraseStation]) -> [String: String] {
