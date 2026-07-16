@@ -19,16 +19,16 @@ struct HomeTabView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if !hasHomeContent {
-                    ContentUnavailableView(
-                        "Ingen favoritter",
-                        systemImage: "star",
-                        description: Text("Legg til stasjoner som favoritter fra stasjonslisten for å se dem her.")
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ScrollView {
+            ScrollView {
+                Group {
+                    if !hasHomeContent {
+                        ContentUnavailableView(
+                            "Ingen favoritter",
+                            systemImage: "star",
+                            description: Text("Legg til stasjoner som favoritter fra stasjonslisten for å se dem her.")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 260)
+                    } else {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             if !favoritesStore.stations.isEmpty {
                                 favoriteSection
@@ -38,13 +38,16 @@ struct HomeTabView: View {
                                 nearestSection(nearestStation)
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 12)
-                        .appReadableContentWidth()
                     }
-                    .scrollIndicators(.hidden)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
+                .appReadableContentWidth()
+            }
+            .scrollIndicators(.hidden)
+            .refreshable {
+                await refreshHome()
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle(tabGreetingTitle)
@@ -86,6 +89,11 @@ struct HomeTabView: View {
         .onChange(of: favoritesStore.stations.map(\.storageKey)) { _, _ in
             viewModel.refreshNearestStation()
         }
+    }
+
+    private func refreshHome() async {
+        minuteRefreshDate = AppTime.now
+        viewModel.refreshNearestStation()
     }
 
     private var hasHomeContent: Bool {
@@ -312,9 +320,12 @@ private struct HomeFavoriteStationBoard: View {
     let onSelectStation: () -> Void
     let onSelectTrain: (StationMessage, TrainMessage?) -> Void
 
+    @State private var filterStore = TrainListStationFilterStore.shared
     @State private var viewModel = HomeFavoriteStationBoardViewModel()
 
     var body: some View {
+        let _ = filterStore.version
+
         VStack(alignment: .leading, spacing: 12) {
             stationHeader
             Rectangle()
@@ -621,15 +632,19 @@ private enum HomeFavoriteBoardStyle {
 @MainActor
 @Observable
 private final class HomeFavoriteStationBoardViewModel {
-    private let upcomingRequestCount = 10
+    private let defaultUpcomingRequestCount = 10
+    private let filteredUpcomingRequestCount = 120
+    private let detailPrefetchCount = 40
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
+    private var trainMessagesByLooseKey: [String: TrainMessage] = [:]
     var errorMessage: String?
     var isLoading = false
 
     private let service: SignalRService
     private var requestedStationKey: String?
     private var requestedStationShortName: String?
+    private var requestedStationName: String?
     private var requestedCountryCode: String?
     private var hasStarted = false
 
@@ -639,6 +654,18 @@ private final class HomeFavoriteStationBoardViewModel {
     }
 
     var departureMessages: [StationMessage] {
+        let filteredMessages = baseDepartureMessages
+            .filter(matchesStationFilter)
+
+        if shouldBypassLineFilterTemporarily(filteredMessages: filteredMessages) {
+            return baseDepartureMessages
+                .filter(matchesTrackFilterOnly)
+        }
+
+        return filteredMessages
+    }
+
+    private var baseDepartureMessages: [StationMessage] {
         stationMessages
             .filter(isDepartureVisible)
             .sorted { lhs, rhs in
@@ -672,9 +699,14 @@ private final class HomeFavoriteStationBoardViewModel {
             }
 
             let key = self.trainMessageKey(for: trainMessage)
+            let looseKey = self.trainMessageLooseKey(countryCode: trainMessage.countryCode, trainNo: trainMessage.trainNo)
             var updated = self.trainMessagesByKey
             updated[key] = trainMessage
             self.trainMessagesByKey = updated
+
+            var updatedLoose = self.trainMessagesByLooseKey
+            updatedLoose[looseKey] = trainMessage
+            self.trainMessagesByLooseKey = updatedLoose
         }
 
         service.onError = { [weak self] message in
@@ -706,7 +738,7 @@ private final class HomeFavoriteStationBoardViewModel {
         await service.requestStationMessagesUpcoming(
             countryCode: requestedCountryCode,
             stationShortName: requestedStationShortName,
-            count: upcomingRequestCount
+            count: stationMessagesRequestCount()
         )
         requestTrainDetailsForVisibleCards()
     }
@@ -765,40 +797,55 @@ private final class HomeFavoriteStationBoardViewModel {
 
         requestedStationKey = station.storageKey
         requestedStationShortName = station.shortName.trimmingCharacters(in: .whitespacesAndNewlines)
+        requestedStationName = station.name.trimmingCharacters(in: .whitespacesAndNewlines)
         requestedCountryCode = station.countryCode.trimmingCharacters(in: .whitespacesAndNewlines)
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]
+        trainMessagesByLooseKey = [:]
 
         await service.start()
         await service.requestStationMessagesUpcoming(
             countryCode: station.countryCode,
             stationShortName: stationShortName,
-            count: upcomingRequestCount
+            count: stationMessagesRequestCount()
         )
     }
 
     private func matchesRequestedStation(_ stationMessages: [StationMessage]) -> Bool {
         guard
-            let requestedStationKey,
             let requestedStationShortName,
-            let requestedCountryCode,
-            let firstMessage = stationMessages.first
+            let requestedStationName,
+            let requestedCountryCode
         else {
             return false
         }
 
-        let responseKey = "\(firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased())::\(firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased())"
-        if responseKey == requestedStationKey {
-            return true
+        guard !stationMessages.isEmpty else {
+            return isLoading
         }
 
-        return requestedCountryCode.uppercased() == firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            && requestedStationShortName.uppercased() == firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let normalizedRequestedCountryCode = requestedCountryCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+        let requestedStationCandidates = stationMatchCandidates(from: [
+            requestedStationShortName,
+            requestedStationName
+        ])
+
+        return stationMessages.contains { stationMessage in
+            let normalizedResponseCountryCode = stationMessage.countryCode
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .uppercased()
+            let responseStationCandidates = stationMatchCandidates(from: [stationMessage.city])
+
+            return normalizedRequestedCountryCode == normalizedResponseCountryCode
+                && !requestedStationCandidates.isDisjoint(with: responseStationCandidates)
+        }
     }
 
     private func requestTrainDetailsForVisibleCards() {
-        for stationMessage in departureMessages.prefix(3) {
+        for stationMessage in baseDepartureMessages.prefix(detailPrefetchCount) {
             guard trainDetail(for: stationMessage) == nil else {
                 continue
             }
@@ -814,7 +861,13 @@ private final class HomeFavoriteStationBoardViewModel {
     }
 
     func trainDetail(for stationMessage: StationMessage) -> TrainMessage? {
-        trainMessagesByKey[trainMessageKey(countryCode: stationMessage.countryCode, trainNo: stationMessage.trainNo, originDate: stationMessage.originDate)]
+        let exactKey = trainMessageKey(countryCode: stationMessage.countryCode, trainNo: stationMessage.trainNo, originDate: stationMessage.originDate)
+        if let exactMatch = trainMessagesByKey[exactKey] {
+            return exactMatch
+        }
+
+        let looseKey = trainMessageLooseKey(countryCode: stationMessage.countryCode, trainNo: stationMessage.trainNo)
+        return trainMessagesByLooseKey[looseKey]
     }
 
     private func trainMessageKey(for trainMessage: TrainMessage) -> String {
@@ -823,6 +876,12 @@ private final class HomeFavoriteStationBoardViewModel {
 
     private func trainMessageKey(countryCode: String, trainNo: String, originDate: String) -> String {
         "\(countryCode)-\(trainNo)-\(originDate)"
+    }
+
+    private func trainMessageLooseKey(countryCode: String, trainNo: String) -> String {
+        let normalizedCountryCode = countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let normalizedTrainNo = trainNo.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return "\(normalizedCountryCode)-\(normalizedTrainNo)"
     }
 
     private func isDepartureVisible(_ stationMessage: StationMessage) -> Bool {
@@ -869,6 +928,140 @@ private final class HomeFavoriteStationBoardViewModel {
     private func normalizedText(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func normalizedStationCode(for value: String?) -> String {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased() ?? ""
+    }
+
+    private func stationMatchCandidates(from rawValues: [String?]) -> Set<String> {
+        var candidates: Set<String> = []
+
+        for rawValue in rawValues {
+            let normalizedValue = normalizedStationCode(for: rawValue)
+            if !normalizedValue.isEmpty {
+                candidates.insert(normalizedValue)
+            }
+
+            let remappedValue = normalizedStationCode(for: CommonService.remappedTrainMessageStationCode(for: rawValue))
+            if !remappedValue.isEmpty {
+                candidates.insert(remappedValue)
+            }
+        }
+
+        return candidates
+    }
+
+    private func matchesStationFilter(_ stationMessage: StationMessage) -> Bool {
+        guard let filter = activeStationFilter() else {
+            return true
+        }
+
+        if let lineNumberFilter = normalizedText(filter.lineNumber) {
+            guard lineFilterValues(for: stationMessage).contains(where: {
+                $0.localizedCaseInsensitiveCompare(lineNumberFilter) == .orderedSame
+            }) else {
+                return false
+            }
+        }
+
+        if let trackFilter = normalizedText(filter.track) {
+            guard let trackValue = trackFilterValue(for: stationMessage),
+                  trackValue.localizedCaseInsensitiveCompare(trackFilter) == .orderedSame else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func matchesTrackFilterOnly(_ stationMessage: StationMessage) -> Bool {
+        guard let filter = activeStationFilter() else {
+            return true
+        }
+
+        guard let trackFilter = normalizedText(filter.track) else {
+            return true
+        }
+
+        guard let trackValue = trackFilterValue(for: stationMessage) else {
+            return false
+        }
+
+        return trackValue.localizedCaseInsensitiveCompare(trackFilter) == .orderedSame
+    }
+
+    private func shouldBypassLineFilterTemporarily(filteredMessages: [StationMessage]) -> Bool {
+        guard let filter = activeStationFilter(),
+              normalizedText(filter.lineNumber) != nil,
+              filteredMessages.isEmpty else {
+            return false
+        }
+
+        let hasResolvedLineData = baseDepartureMessages.contains { stationMessage in
+            normalizedText(trainDetail(for: stationMessage)?.lineNumber) != nil
+                || fallbackLineNumber(for: stationMessage) != nil
+        }
+
+        return !hasResolvedLineData
+    }
+
+    private func activeStationFilter() -> TrainListStationFilter? {
+        guard let requestedStationKey else {
+            return nil
+        }
+
+        return TrainListStationFilterStore.shared.filter(for: requestedStationKey)
+    }
+
+    private func lineFilterValue(for stationMessage: StationMessage) -> String? {
+        lineFilterValues(for: stationMessage).first
+    }
+
+    private func lineFilterValues(for stationMessage: StationMessage) -> [String] {
+        var values: [String] = []
+
+        if let lineNumber = normalizedText(trainDetail(for: stationMessage)?.lineNumber) {
+            values.append(lineNumber)
+        }
+
+        if let fallbackLineNumber = fallbackLineNumber(for: stationMessage),
+           !values.contains(where: { $0.localizedCaseInsensitiveCompare(fallbackLineNumber) == .orderedSame }) {
+            values.append(fallbackLineNumber)
+        }
+
+        if let trainNo = normalizedText(stationMessage.trainNo),
+           !values.contains(where: { $0.localizedCaseInsensitiveCompare(trainNo) == .orderedSame }) {
+            values.append(trainNo)
+        }
+
+        return values
+    }
+
+    private func fallbackLineNumber(for stationMessage: StationMessage) -> String? {
+        trainMessagesByKey.values
+            .first(where: { trainMessage in
+                trainMessage.countryCode.localizedCaseInsensitiveCompare(stationMessage.countryCode) == .orderedSame
+                    && trainMessage.trainNo.localizedCaseInsensitiveCompare(stationMessage.trainNo) == .orderedSame
+            })
+            .flatMap { normalizedText($0.lineNumber) }
+    }
+
+    private func trackFilterValue(for stationMessage: StationMessage) -> String? {
+        normalizedText(trackText(for: stationMessage))
+    }
+
+    private func stationMessagesRequestCount() -> Int {
+        guard let filter = activeStationFilter() else {
+            return defaultUpcomingRequestCount
+        }
+
+        let hasLineFilter = normalizedText(filter.lineNumber) != nil
+        let hasTrackFilter = normalizedText(filter.track) != nil
+
+        return (hasLineFilter || hasTrackFilter) ? filteredUpcomingRequestCount : defaultUpcomingRequestCount
     }
 }
 

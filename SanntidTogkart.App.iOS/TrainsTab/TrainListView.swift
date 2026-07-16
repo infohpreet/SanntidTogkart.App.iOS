@@ -5,7 +5,11 @@ struct TrainListView: View {
     let station: TraseStation
 
     @State private var favoritesStore = TrainStationFavoritesStore.shared
+    @State private var filterStore = TrainListStationFilterStore.shared
     @State private var selectedTab: TrainListTab = .departures
+    @State private var isFilterCardExpanded = false
+    @State private var selectedLineNumberFilter: String?
+    @State private var selectedTrackFilter: String?
     @State private var viewModel = TrainListViewModel()
 
     var body: some View {
@@ -23,6 +27,7 @@ struct TrainListView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         trainListTabPicker
+                        filterCard
 
                         stationMessagesBoard
                     }
@@ -51,17 +56,182 @@ struct TrainListView: View {
             }
         }
         .task {
+            applyPersistedFilters()
             await viewModel.start(for: station)
+        }
+        .onChange(of: selectedLineNumberFilter) { _, _ in
+            persistSelectedFilters()
+        }
+        .onChange(of: selectedTrackFilter) { _, _ in
+            persistSelectedFilters()
         }
     }
 
     private func messages(for tab: TrainListTab) -> [StationMessage] {
-        switch tab {
-        case .departures:
-            return viewModel.departureMessages
-        case .arrivals:
-            return viewModel.arrivalMessages
+        viewModel.filteredMessages(
+            for: tab,
+            lineNumberFilter: selectedLineNumberFilter,
+            trackFilter: selectedTrackFilter
+        )
+    }
+
+    private var hasActiveFilters: Bool {
+        selectedLineNumberFilter != nil || selectedTrackFilter != nil
+    }
+
+    private var lineNumberFilterOptions: [String] {
+        optionsIncludingSelected(
+            viewModel.availableLineNumberFilters(for: selectedTab, trackFilter: selectedTrackFilter),
+            selected: selectedLineNumberFilter
+        )
+    }
+
+    private var trackFilterOptions: [String] {
+        optionsIncludingSelected(
+            viewModel.availableTrackFilters(for: selectedTab, lineNumberFilter: selectedLineNumberFilter),
+            selected: selectedTrackFilter
+        )
+    }
+
+    private var filterCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isFilterCardExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+
+                    if hasActiveFilters {
+                        Text(activeFilterSummary)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: isFilterCardExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isFilterCardExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    if hasActiveFilters {
+                        Button("Nullstill") {
+                            selectedLineNumberFilter = nil
+                            selectedTrackFilter = nil
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
+
+                    HStack(spacing: 10) {
+                        Menu {
+                            Button("Alle") {
+                                selectedLineNumberFilter = nil
+                            }
+
+                            ForEach(lineNumberFilterOptions, id: \.self) { option in
+                                Button(option) {
+                                    selectedLineNumberFilter = option
+                                }
+                            }
+                        } label: {
+                            filterMenuLabel(title: "Linje", value: selectedLineNumberFilter ?? "Alle")
+                        }
+
+                        Menu {
+                            Button("Alle") {
+                                selectedTrackFilter = nil
+                            }
+
+                            ForEach(trackFilterOptions, id: \.self) { option in
+                                Button(option) {
+                                    selectedTrackFilter = option
+                                }
+                            }
+                        } label: {
+                            filterMenuLabel(title: "Spor", value: selectedTrackFilter ?? "Alle")
+                        }
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
+        .padding(12)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
+        }
+    }
+
+    private var activeFilterSummary: String {
+        let line = selectedLineNumberFilter.map { "Linje \($0)" }
+        let track = selectedTrackFilter.map { "Spor \($0)" }
+
+        return [line, track]
+            .compactMap { $0 }
+            .joined(separator: " • ")
+    }
+
+    private func filterMenuLabel(title: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(value)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            Image(systemName: "chevron.down")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func optionsIncludingSelected(_ options: [String], selected: String?) -> [String] {
+        guard let selected,
+              !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return options
+        }
+
+        if options.contains(where: { $0.localizedCaseInsensitiveCompare(selected) == .orderedSame }) {
+            return options
+        }
+
+        return [selected] + options
+    }
+
+    private func applyPersistedFilters() {
+        let persistedFilter = filterStore.filter(for: station.storageKey)
+        selectedLineNumberFilter = persistedFilter.lineNumber
+        selectedTrackFilter = persistedFilter.track
+    }
+
+    private func persistSelectedFilters() {
+        filterStore.setFilter(
+            for: station.storageKey,
+            lineNumber: selectedLineNumberFilter,
+            track: selectedTrackFilter
+        )
     }
 
     private var trainListTabPicker: some View {
@@ -471,21 +641,32 @@ private final class TrainListViewModel {
     }
 
     var departureMessages: [StationMessage] {
-        Array(stationMessages
-            .filter { isVisible($0, tab: .departures) }
-            .sorted { lhs, rhs in
-                compare(lhs: lhs, rhs: rhs, tab: .departures)
-            }
-            .prefix(maxUpcomingMessages))
+        filteredMessages(for: .departures, lineNumberFilter: nil, trackFilter: nil)
     }
 
     var arrivalMessages: [StationMessage] {
-        Array(stationMessages
-            .filter { isVisible($0, tab: .arrivals) }
-            .sorted { lhs, rhs in
-                compare(lhs: lhs, rhs: rhs, tab: .arrivals)
-            }
-            .prefix(maxUpcomingMessages))
+        filteredMessages(for: .arrivals, lineNumberFilter: nil, trackFilter: nil)
+    }
+
+    func filteredMessages(for tab: TrainListTab, lineNumberFilter: String?, trackFilter: String?) -> [StationMessage] {
+        Array(baseMessages(for: tab)
+            .filter { matchesFilters($0, lineNumberFilter: lineNumberFilter, trackFilter: trackFilter) })
+    }
+
+    func availableLineNumberFilters(for tab: TrainListTab, trackFilter: String?) -> [String] {
+        uniqueSortedValues(
+            from: baseMessages(for: tab)
+                .filter { matchesFilters($0, lineNumberFilter: nil, trackFilter: trackFilter) }
+                .flatMap { lineFilterValues(for: $0) }
+        )
+    }
+
+    func availableTrackFilters(for tab: TrainListTab, lineNumberFilter: String?) -> [String] {
+        uniqueSortedValues(
+            from: baseMessages(for: tab)
+                .filter { matchesFilters($0, lineNumberFilter: lineNumberFilter, trackFilter: nil) }
+                .compactMap { trackFilterValue(for: $0) }
+        )
     }
 
     private func configureBindings() {
@@ -661,41 +842,38 @@ private final class TrainListViewModel {
             let requestedStationKey,
             let requestedStationShortName,
             let requestedStationName,
-            let requestedCountryCode,
-            let firstMessage = stationMessages.first
+            let requestedCountryCode
         else {
             return false
         }
 
         let normalizedRequestedCountryCode = requestedCountryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let normalizedResponseCountryCode = firstMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let requestedCandidates = stationMatchCandidates(from: [requestedStationShortName, requestedStationName])
 
-        guard normalizedRequestedCountryCode == normalizedResponseCountryCode else {
+        return stationMessages.contains { stationMessage in
+            let normalizedResponseCountryCode = stationMessage.countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard normalizedRequestedCountryCode == normalizedResponseCountryCode else {
+                return false
+            }
+
+            let responseCandidates = stationMatchCandidates(from: [stationMessage.city])
+            if !requestedCandidates.isDisjoint(with: responseCandidates) {
+                return true
+            }
+
+            if let responseStation = stations.first(where: { station in
+                station.countryCode.compare(normalizedResponseCountryCode, options: .caseInsensitive) == .orderedSame
+                    && (
+                        station.shortName.compare(stationMessage.city, options: .caseInsensitive) == .orderedSame
+                            || station.name.compare(stationMessage.city, options: .caseInsensitive) == .orderedSame
+                            || (station.plcCode?.compare(stationMessage.city, options: .caseInsensitive) == .orderedSame)
+                    )
+            }) {
+                return responseStation.storageKey == requestedStationKey
+            }
+
             return false
         }
-
-        let normalizedResponseStation = firstMessage.city.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if normalizedResponseStation.compare(requestedStationShortName, options: .caseInsensitive) == .orderedSame {
-            return true
-        }
-
-        if normalizedResponseStation.compare(requestedStationName, options: .caseInsensitive) == .orderedSame {
-            return true
-        }
-
-        if let responseStation = stations.first(where: { station in
-            station.countryCode.compare(normalizedResponseCountryCode, options: .caseInsensitive) == .orderedSame
-                && (
-                    station.shortName.compare(normalizedResponseStation, options: .caseInsensitive) == .orderedSame
-                        || station.name.compare(normalizedResponseStation, options: .caseInsensitive) == .orderedSame
-                        || (station.plcCode?.compare(normalizedResponseStation, options: .caseInsensitive) == .orderedSame)
-                )
-        }) {
-            return responseStation.storageKey == requestedStationKey
-        }
-
-        return false
     }
 
     private func requestTrainDetailsForInitialView(for stationMessages: [StationMessage]) {
@@ -812,6 +990,15 @@ private final class TrainListViewModel {
         return lhsDate < rhsDate
     }
 
+    private func baseMessages(for tab: TrainListTab) -> [StationMessage] {
+        Array(stationMessages
+            .filter { isVisible($0, tab: tab) }
+            .sorted { lhs, rhs in
+                compare(lhs: lhs, rhs: rhs, tab: tab)
+            }
+            .prefix(maxUpcomingMessages))
+    }
+
     private func sortDate(for stationMessage: StationMessage, tab: TrainListTab) -> Date? {
         switch tab {
         case .departures:
@@ -841,6 +1028,103 @@ private final class TrainListViewModel {
     private func normalizedText(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func normalizedStationCode(for value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+    }
+
+    private func stationMatchCandidates(from rawValues: [String?]) -> Set<String> {
+        var candidates: Set<String> = []
+
+        for rawValue in rawValues {
+            let normalizedValue = normalizedStationCode(for: rawValue)
+            if !normalizedValue.isEmpty {
+                candidates.insert(normalizedValue)
+            }
+
+            let remappedValue = normalizedStationCode(for: CommonService.remappedTrainMessageStationCode(for: rawValue))
+            if !remappedValue.isEmpty {
+                candidates.insert(remappedValue)
+            }
+        }
+
+        return candidates
+    }
+
+    private func matchesFilters(_ stationMessage: StationMessage, lineNumberFilter: String?, trackFilter: String?) -> Bool {
+        let normalizedLineFilter = normalizedText(lineNumberFilter)
+        let normalizedTrackFilter = normalizedText(trackFilter)
+
+        if let normalizedLineFilter {
+            guard lineFilterValues(for: stationMessage).contains(where: {
+                $0.localizedCaseInsensitiveCompare(normalizedLineFilter) == .orderedSame
+            }) else {
+                return false
+            }
+        }
+
+        if let normalizedTrackFilter {
+            guard let trackText = trackFilterValue(for: stationMessage),
+                  trackText.localizedCaseInsensitiveCompare(normalizedTrackFilter) == .orderedSame else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func lineNumberFilterValue(for stationMessage: StationMessage) -> String? {
+        lineFilterValues(for: stationMessage).first
+    }
+
+    private func lineFilterValues(for stationMessage: StationMessage) -> [String] {
+        var values: [String] = []
+
+        if let lineNumber = normalizedText(trainDetail(for: stationMessage)?.lineNumber) {
+            values.append(lineNumber)
+        }
+
+        if let fallbackLineNumber = fallbackLineNumber(for: stationMessage),
+           !values.contains(where: { $0.localizedCaseInsensitiveCompare(fallbackLineNumber) == .orderedSame }) {
+            values.append(fallbackLineNumber)
+        }
+
+        if let trainNo = normalizedText(stationMessage.trainNo),
+           !values.contains(where: { $0.localizedCaseInsensitiveCompare(trainNo) == .orderedSame }) {
+            values.append(trainNo)
+        }
+
+        return values
+    }
+
+    private func fallbackLineNumber(for stationMessage: StationMessage) -> String? {
+        trainMessagesByKey.values
+            .first(where: { trainMessage in
+                trainMessage.countryCode.localizedCaseInsensitiveCompare(stationMessage.countryCode) == .orderedSame
+                    && trainMessage.trainNo.localizedCaseInsensitiveCompare(stationMessage.trainNo) == .orderedSame
+            })
+            .flatMap { normalizedText($0.lineNumber) }
+    }
+
+    private func trackFilterValue(for stationMessage: StationMessage) -> String? {
+        normalizedText(trackText(for: stationMessage))
+    }
+
+    private func uniqueSortedValues(from values: [String]) -> [String] {
+        var seen: Set<String> = []
+        var ordered: [String] = []
+
+        for value in values {
+            let key = value.uppercased()
+            if seen.insert(key).inserted {
+                ordered.append(value)
+            }
+        }
+
+        return ordered.sorted { lhs, rhs in
+            lhs.localizedStandardCompare(rhs) == .orderedAscending
+        }
     }
 
 }
