@@ -13,6 +13,7 @@ struct TrainRouteView: View {
     @State private var navigationCenter = AppNavigationCenter.shared
     @State private var viewModel: TrainRouteViewModel
     @State private var minuteRefreshDate = AppTime.now
+    @State private var showPassingStations = false
 
     private let minuteRefreshTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
@@ -131,8 +132,15 @@ struct TrainRouteView: View {
             boardHeader
 
             LazyVStack(spacing: 0) {
-                ForEach(viewModel.stationMessages.indices, id: \.self) { index in
-                    routeRow(viewModel.stationMessages[index], index: index)
+                let indices = displayedStationIndices
+
+                ForEach(Array(indices.enumerated()), id: \.offset) { displayIndex, originalIndex in
+                    routeRow(
+                        viewModel.stationMessages[originalIndex],
+                        originalIndex: originalIndex,
+                        displayIndex: displayIndex,
+                        totalDisplayCount: indices.count
+                    )
                 }
             }
 
@@ -145,7 +153,17 @@ struct TrainRouteView: View {
             routeMetadataGrid
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
-                .padding(.bottom, 16)
+                .padding(.bottom, viewModel.passingCount > 0 ? 4 : 16)
+
+            if viewModel.passingCount > 0 {
+                Rectangle()
+                    .fill(TrainRouteStyle.divider)
+                    .frame(height: 1)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+
+                passingStationsToggleRow
+            }
         }
         .background(TrainRouteStyle.background, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
@@ -248,6 +266,34 @@ struct TrainRouteView: View {
         }
     }
 
+    /// Indices into `viewModel.stationMessages` for the rows that should currently be rendered.
+    /// Passing stations (activity "P") are hidden by default and only included once the user
+    /// enables `showPassingStations`, without affecting the original index used for highlighting
+    /// the current position along the route.
+    private var displayedStationIndices: [Int] {
+        viewModel.stationMessages.indices.filter { index in
+            showPassingStations || !viewModel.isPassingActivity(viewModel.stationMessages[index])
+        }
+    }
+
+    private var passingStationsToggleRow: some View {
+        Toggle(isOn: $showPassingStations.animation(.easeInOut(duration: 0.2))) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Vis passeringer")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text("\(viewModel.passingCount) stasjoner uten stopp")
+                    .font(.caption)
+                    .foregroundStyle(TrainRouteStyle.secondaryText)
+            }
+        }
+        .tint(Color.accentColor)
+        .padding(.horizontal, 18)
+        .padding(.top, 8)
+        .padding(.bottom, 16)
+    }
+
     private var boardHeader: some View {
         VStack(spacing: 10) {
             Rectangle()
@@ -271,12 +317,12 @@ struct TrainRouteView: View {
         .padding(.bottom, 6)
     }
 
-    private func routeRow(_ message: StationMessage, index: Int) -> some View {
+    private func routeRow(_ message: StationMessage, originalIndex: Int, displayIndex: Int, totalDisplayCount: Int) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            timeColumn(for: message, index: index)
+            timeColumn(for: message, index: originalIndex)
                 .frame(width: 56, alignment: .leading)
 
-            timelineMarker(for: index, totalCount: viewModel.stationMessages.count)
+            timelineMarker(originalIndex: originalIndex, displayIndex: displayIndex, totalDisplayCount: totalDisplayCount)
                 .frame(width: 32, height: 56)
 
             Text(viewModel.stationName(for: message))
@@ -319,20 +365,20 @@ struct TrainRouteView: View {
         }
     }
 
-    private func timelineMarker(for index: Int, totalCount: Int) -> some View {
+    private func timelineMarker(originalIndex: Int, displayIndex: Int, totalDisplayCount: Int) -> some View {
         let currentIndex = viewModel.currentRouteIndex
-        let isCurrent = index == currentIndex
-        let isPassed = index < currentIndex
-        let isFirst = index == 0
-        let isLast = index == totalCount - 1
+        let isCurrent = originalIndex == currentIndex
+        let isPassed = originalIndex < currentIndex
+        let isFirst = displayIndex == 0
+        let isLast = displayIndex == totalDisplayCount - 1
 
         return ZStack {
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(isFirst ? Color.clear : (index <= currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive))
+                    .fill(isFirst ? Color.clear : (originalIndex <= currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive))
 
                 Rectangle()
-                    .fill(isLast ? Color.clear : (index < currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive))
+                    .fill(isLast ? Color.clear : (originalIndex < currentIndex ? TrainRouteStyle.lineRed : TrainRouteStyle.timelineInactive))
             }
             .frame(width: 5)
             .frame(maxHeight: .infinity)
@@ -683,7 +729,7 @@ private final class TrainRouteViewModel {
         return "via " + stationNames.joined(separator: " · ")
     }
 
-    private func isPassingActivity(_ stationMessage: StationMessage) -> Bool {
+    func isPassingActivity(_ stationMessage: StationMessage) -> Bool {
         stationMessage.activity.trimmingCharacters(in: .whitespacesAndNewlines)
             .localizedCaseInsensitiveCompare("P") == .orderedSame
     }
