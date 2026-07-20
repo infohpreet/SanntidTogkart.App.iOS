@@ -1132,32 +1132,12 @@ private final class TrainListViewModel {
     }
 
     private func matchesFilters(_ stationMessage: StationMessage, lineNumberFilters: Set<String>, trackFilters: Set<String>) -> Bool {
-        let normalizedLineFilters = normalizedFilterSet(lineNumberFilters)
-        let normalizedTrackFilters = normalizedFilterSet(trackFilters)
-
-        if !normalizedLineFilters.isEmpty {
-            guard let lineValue = lineNumberOptionValue(for: stationMessage),
-                  normalizedLineFilters.contains(where: {
-                      $0.localizedCaseInsensitiveCompare(lineValue) == .orderedSame
-                  }) else {
-                return false
-            }
-        }
-
-        if !normalizedTrackFilters.isEmpty {
-            guard let trackText = trackFilterValue(for: stationMessage),
-                  normalizedTrackFilters.contains(where: {
-                      $0.localizedCaseInsensitiveCompare(trackText) == .orderedSame
-                  }) else {
-                return false
-            }
-        }
-
-        return true
-    }
-
-    private func normalizedFilterSet(_ values: Set<String>) -> Set<String> {
-        Set(values.compactMap { normalizedText($0) })
+        TrainListFilterMatching.matches(
+            lineValue: lineNumberOptionValue(for: stationMessage),
+            trackValue: trackFilterValue(for: stationMessage),
+            lineNumberFilters: lineNumberFilters,
+            trackFilters: trackFilters
+        )
     }
 
     /// The line number option is only resolved from actual line-number data (primary or fallback

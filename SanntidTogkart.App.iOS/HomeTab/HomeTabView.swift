@@ -1012,28 +1012,12 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        let lineNumberFilters = normalizedFilterSet(filter.lineNumbers)
-        let trackFilters = normalizedFilterSet(filter.tracks)
-
-        if !lineNumberFilters.isEmpty {
-            guard let lineValue = lineNumberOptionValue(for: stationMessage),
-                  lineNumberFilters.contains(where: {
-                      $0.localizedCaseInsensitiveCompare(lineValue) == .orderedSame
-                  }) else {
-                return false
-            }
-        }
-
-        if !trackFilters.isEmpty {
-            guard let trackValue = trackFilterValue(for: stationMessage),
-                  trackFilters.contains(where: {
-                      $0.localizedCaseInsensitiveCompare(trackValue) == .orderedSame
-                  }) else {
-                return false
-            }
-        }
-
-        return true
+        return TrainListFilterMatching.matches(
+            lineValue: lineNumberOptionValue(for: stationMessage),
+            trackValue: trackFilterValue(for: stationMessage),
+            lineNumberFilters: filter.lineNumbers,
+            trackFilters: filter.tracks
+        )
     }
 
     private func matchesTrackFilterOnly(_ stationMessage: StationMessage) -> Bool {
@@ -1041,24 +1025,17 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        let trackFilters = normalizedFilterSet(filter.tracks)
-
-        guard !trackFilters.isEmpty else {
-            return true
-        }
-
-        guard let trackValue = trackFilterValue(for: stationMessage) else {
-            return false
-        }
-
-        return trackFilters.contains(where: {
-            $0.localizedCaseInsensitiveCompare(trackValue) == .orderedSame
-        })
+        return TrainListFilterMatching.matches(
+            lineValue: nil,
+            trackValue: trackFilterValue(for: stationMessage),
+            lineNumberFilters: [],
+            trackFilters: filter.tracks
+        )
     }
 
     private func shouldBypassLineFilterTemporarily(filteredMessages: [StationMessage]) -> Bool {
         guard let filter = activeStationFilter(),
-              !normalizedFilterSet(filter.lineNumbers).isEmpty,
+              !TrainListFilterMatching.normalizedFilterSet(filter.lineNumbers).isEmpty,
               filteredMessages.isEmpty else {
             return false
         }
@@ -1076,10 +1053,6 @@ private final class HomeFavoriteStationBoardViewModel {
         }
 
         return TrainListStationFilterStore.shared.filter(for: requestedStationKey)
-    }
-
-    private func normalizedFilterSet(_ values: Set<String>) -> Set<String> {
-        Set(values.compactMap { normalizedText($0) })
     }
 
     /// Excludes the train number fallback so it is never treated as a real "line" value,
@@ -1106,8 +1079,8 @@ private final class HomeFavoriteStationBoardViewModel {
             return defaultUpcomingRequestCount
         }
 
-        let hasLineFilter = !normalizedFilterSet(filter.lineNumbers).isEmpty
-        let hasTrackFilter = !normalizedFilterSet(filter.tracks).isEmpty
+        let hasLineFilter = !TrainListFilterMatching.normalizedFilterSet(filter.lineNumbers).isEmpty
+        let hasTrackFilter = !TrainListFilterMatching.normalizedFilterSet(filter.tracks).isEmpty
 
         return (hasLineFilter || hasTrackFilter) ? filteredUpcomingRequestCount : defaultUpcomingRequestCount
     }

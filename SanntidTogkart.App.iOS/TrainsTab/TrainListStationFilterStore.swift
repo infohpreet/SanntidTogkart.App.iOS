@@ -120,3 +120,38 @@ private struct PersistedStationFilter: Codable {
     let lineNumbers: Set<String>
     let tracks: Set<String>
 }
+
+/// Shared matching rules for the train list line/track filters, used by both the
+/// `TrainListView` filter dropdown and the home screen favorite station cards so the two
+/// surfaces can never drift out of sync.
+enum TrainListFilterMatching {
+    static func normalizedFilterSet(_ values: Set<String>) -> Set<String> {
+        Set(values.compactMap { normalizedText($0) })
+    }
+
+    static func matches(lineValue: String?, trackValue: String?, lineNumberFilters: Set<String>, trackFilters: Set<String>) -> Bool {
+        let normalizedLineFilters = normalizedFilterSet(lineNumberFilters)
+        let normalizedTrackFilters = normalizedFilterSet(trackFilters)
+
+        if !normalizedLineFilters.isEmpty {
+            guard let lineValue,
+                  normalizedLineFilters.contains(where: { $0.localizedCaseInsensitiveCompare(lineValue) == .orderedSame }) else {
+                return false
+            }
+        }
+
+        if !normalizedTrackFilters.isEmpty {
+            guard let trackValue,
+                  normalizedTrackFilters.contains(where: { $0.localizedCaseInsensitiveCompare(trackValue) == .orderedSame }) else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    static func normalizedText(_ value: String?) -> String? {
+        let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return normalized.isEmpty ? nil : normalized
+    }
+}
