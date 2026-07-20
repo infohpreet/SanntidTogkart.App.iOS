@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 struct TrainListStationFilter: Sendable {
-    let lineNumber: String?
-    let track: String?
+    let lineNumbers: Set<String>
+    let tracks: Set<String>
 }
 
 @MainActor
@@ -25,34 +25,34 @@ final class TrainListStationFilterStore {
 
         if let persistedFilter = filtersByStationKey[canonicalKey] {
             return TrainListStationFilter(
-                lineNumber: persistedFilter.lineNumber,
-                track: persistedFilter.track
+                lineNumbers: persistedFilter.lineNumbers,
+                tracks: persistedFilter.tracks
             )
         }
 
         // Backward compatibility for filters saved before key canonicalization.
         guard let persistedFilter = filtersByStationKey[stationKey] else {
-            return TrainListStationFilter(lineNumber: nil, track: nil)
+            return TrainListStationFilter(lineNumbers: [], tracks: [])
         }
 
         return TrainListStationFilter(
-            lineNumber: persistedFilter.lineNumber,
-            track: persistedFilter.track
+            lineNumbers: persistedFilter.lineNumbers,
+            tracks: persistedFilter.tracks
         )
     }
 
-    func setFilter(for stationKey: String, lineNumber: String?, track: String?) {
+    func setFilter(for stationKey: String, lineNumbers: Set<String>, tracks: Set<String>) {
         let canonicalKey = canonicalStationKey(from: stationKey)
-        let normalizedLineNumber = normalizedText(lineNumber)
-        let normalizedTrack = normalizedText(track)
+        let normalizedLineNumbers = normalizedSet(lineNumbers)
+        let normalizedTracks = normalizedSet(tracks)
 
-        if normalizedLineNumber == nil, normalizedTrack == nil {
+        if normalizedLineNumbers.isEmpty, normalizedTracks.isEmpty {
             filtersByStationKey.removeValue(forKey: canonicalKey)
             filtersByStationKey.removeValue(forKey: stationKey)
         } else {
             let persistedFilter = PersistedStationFilter(
-                lineNumber: normalizedLineNumber,
-                track: normalizedTrack
+                lineNumbers: normalizedLineNumbers,
+                tracks: normalizedTracks
             )
 
             filtersByStationKey[canonicalKey] = persistedFilter
@@ -94,6 +94,10 @@ final class TrainListStationFilterStore {
         return normalized.isEmpty ? nil : normalized
     }
 
+    private func normalizedSet(_ values: Set<String>) -> Set<String> {
+        Set(values.compactMap { normalizedText($0) })
+    }
+
     private func canonicalStationKey(from stationKey: String) -> String {
         let trimmedKey = stationKey.trimmingCharacters(in: .whitespacesAndNewlines)
         let components = trimmedKey.split(separator: "::", maxSplits: 1, omittingEmptySubsequences: false)
@@ -113,6 +117,6 @@ final class TrainListStationFilterStore {
 }
 
 private struct PersistedStationFilter: Codable {
-    let lineNumber: String?
-    let track: String?
+    let lineNumbers: Set<String>
+    let tracks: Set<String>
 }

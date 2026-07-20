@@ -382,7 +382,7 @@ private struct HomeFavoriteStationBoard: View {
     }
 
     private var hasActiveStationFilter: Bool {
-        stationFilter.lineNumber != nil || stationFilter.track != nil
+        !stationFilter.lineNumbers.isEmpty || !stationFilter.tracks.isEmpty
     }
 
     private var stationHeader: some View {
@@ -431,16 +431,24 @@ private struct HomeFavoriteStationBoard: View {
 
     private var filterSummaryRow: some View {
         HStack(spacing: 6) {
-            if let lineNumber = stationFilter.lineNumber,
-               !lineNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                filterValueBadge(title: "Linje", value: lineNumber)
+            if let lineNumbers = filterSummaryValue(for: stationFilter.lineNumbers) {
+                filterValueBadge(title: "Linje", value: lineNumbers)
             }
 
-            if let track = stationFilter.track,
-               !track.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                filterValueBadge(title: "Spor", value: track)
+            if let tracks = filterSummaryValue(for: stationFilter.tracks) {
+                filterValueBadge(title: "Spor", value: tracks)
             }
         }
+    }
+
+    private func filterSummaryValue(for values: Set<String>) -> String? {
+        guard !values.isEmpty else {
+            return nil
+        }
+
+        return values
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .joined(separator: ", ")
     }
 
     private func filterValueBadge(title: String, value: String) -> some View {
@@ -1004,17 +1012,23 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        if let lineNumberFilter = normalizedText(filter.lineNumber) {
-            guard lineFilterValues(for: stationMessage).contains(where: {
-                $0.localizedCaseInsensitiveCompare(lineNumberFilter) == .orderedSame
-            }) else {
+        let lineNumberFilters = normalizedFilterSet(filter.lineNumbers)
+        let trackFilters = normalizedFilterSet(filter.tracks)
+
+        if !lineNumberFilters.isEmpty {
+            guard let lineValue = lineNumberOptionValue(for: stationMessage),
+                  lineNumberFilters.contains(where: {
+                      $0.localizedCaseInsensitiveCompare(lineValue) == .orderedSame
+                  }) else {
                 return false
             }
         }
 
-        if let trackFilter = normalizedText(filter.track) {
+        if !trackFilters.isEmpty {
             guard let trackValue = trackFilterValue(for: stationMessage),
-                  trackValue.localizedCaseInsensitiveCompare(trackFilter) == .orderedSame else {
+                  trackFilters.contains(where: {
+                      $0.localizedCaseInsensitiveCompare(trackValue) == .orderedSame
+                  }) else {
                 return false
             }
         }
@@ -1027,7 +1041,9 @@ private final class HomeFavoriteStationBoardViewModel {
             return true
         }
 
-        guard let trackFilter = normalizedText(filter.track) else {
+        let trackFilters = normalizedFilterSet(filter.tracks)
+
+        guard !trackFilters.isEmpty else {
             return true
         }
 
@@ -1035,19 +1051,20 @@ private final class HomeFavoriteStationBoardViewModel {
             return false
         }
 
-        return trackValue.localizedCaseInsensitiveCompare(trackFilter) == .orderedSame
+        return trackFilters.contains(where: {
+            $0.localizedCaseInsensitiveCompare(trackValue) == .orderedSame
+        })
     }
 
     private func shouldBypassLineFilterTemporarily(filteredMessages: [StationMessage]) -> Bool {
         guard let filter = activeStationFilter(),
-              normalizedText(filter.lineNumber) != nil,
+              !normalizedFilterSet(filter.lineNumbers).isEmpty,
               filteredMessages.isEmpty else {
             return false
         }
 
         let hasResolvedLineData = baseDepartureMessages.contains { stationMessage in
-            normalizedText(trainDetail(for: stationMessage)?.lineNumber) != nil
-                || fallbackLineNumber(for: stationMessage) != nil
+            lineNumberOptionValue(for: stationMessage) != nil
         }
 
         return !hasResolvedLineData
@@ -1061,24 +1078,14 @@ private final class HomeFavoriteStationBoardViewModel {
         return TrainListStationFilterStore.shared.filter(for: requestedStationKey)
     }
 
-    private func lineFilterValues(for stationMessage: StationMessage) -> [String] {
-        var values: [String] = []
+    private func normalizedFilterSet(_ values: Set<String>) -> Set<String> {
+        Set(values.compactMap { normalizedText($0) })
+    }
 
-        if let lineNumber = normalizedText(trainDetail(for: stationMessage)?.lineNumber) {
-            values.append(lineNumber)
-        }
-
-        if let fallbackLineNumber = fallbackLineNumber(for: stationMessage),
-           !values.contains(where: { $0.localizedCaseInsensitiveCompare(fallbackLineNumber) == .orderedSame }) {
-            values.append(fallbackLineNumber)
-        }
-
-        if let trainNo = normalizedText(stationMessage.trainNo),
-           !values.contains(where: { $0.localizedCaseInsensitiveCompare(trainNo) == .orderedSame }) {
-            values.append(trainNo)
-        }
-
-        return values
+    /// Excludes the train number fallback so it is never treated as a real "line" value,
+    /// matching the same rule used when building the selectable line filter options.
+    private func lineNumberOptionValue(for stationMessage: StationMessage) -> String? {
+        normalizedText(trainDetail(for: stationMessage)?.lineNumber) ?? fallbackLineNumber(for: stationMessage)
     }
 
     private func fallbackLineNumber(for stationMessage: StationMessage) -> String? {
@@ -1099,8 +1106,8 @@ private final class HomeFavoriteStationBoardViewModel {
             return defaultUpcomingRequestCount
         }
 
-        let hasLineFilter = normalizedText(filter.lineNumber) != nil
-        let hasTrackFilter = normalizedText(filter.track) != nil
+        let hasLineFilter = !normalizedFilterSet(filter.lineNumbers).isEmpty
+        let hasTrackFilter = !normalizedFilterSet(filter.tracks).isEmpty
 
         return (hasLineFilter || hasTrackFilter) ? filteredUpcomingRequestCount : defaultUpcomingRequestCount
     }
