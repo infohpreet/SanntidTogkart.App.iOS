@@ -59,7 +59,7 @@ enum CommonService {
 }
 
 private let freightIdentifiers: Set<String> = [
-    "ABCD", "BLSRAIL", "ONR", "MTAB", "CN", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "BN", "TM", "HR", "PT"
+    "ABCD", "BLSRAIL", "ONR", "MTAB", "CN", "BASAB", "MTA", "ONRAIL", "RCT", "RCL", "GC", "HER", "GR", "BN", "HR", "PT"
 ]
 
 private let trainMessageStationCodeMappings: [String: String] = [

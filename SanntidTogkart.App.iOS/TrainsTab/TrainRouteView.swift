@@ -401,16 +401,14 @@ struct TrainRouteView: View {
     }
 
     private var trainBadge: some View {
-        Text(viewModel.lineText(for: stationMessage))
+        let style = LineNumberColorScheme.style(forLineNumber: viewModel.lineNumberValue(for: stationMessage))
+
+        return Text(viewModel.lineText(for: stationMessage))
             .font(.title3.monospacedDigit().weight(.bold))
-            .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(width: 76, height: 34)
-            .background(
-                viewModel.isFreightTrain ? TrainRouteStyle.freightGreen : TrainRouteStyle.trainRed,
-                in: RoundedRectangle(cornerRadius: 1)
-            )
+            .lineNumberBadgeStyle(style)
     }
 }
 
@@ -448,8 +446,6 @@ private enum TrainRouteStyle {
     static let divider = AppTheme.border
     static let mutedText = Color.secondary
     static let secondaryText = Color.secondary
-    static let freightGreen = Color(red: 0.17, green: 0.52, blue: 0.29)
-    static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
     static let lineRed = Color(red: 0.93, green: 0.10, blue: 0.14)
     static let timelineInactive = Color.secondary.opacity(0.34)
     static let delayYellow = Color(red: 0.86, green: 0.62, blue: 0.0)
@@ -547,13 +543,7 @@ private final class TrainRouteViewModel {
     }
 
     func lineText(for stationMessage: StationMessage?) -> String {
-        let matchingTrainMessage = trainMessage.flatMap { trainMessage in
-            if let stationMessage {
-                return matches(trainMessage, stationMessage: stationMessage) ? trainMessage : nil
-            }
-
-            return trainMessage
-        }
+        let matchingTrainMessage = matchingTrainMessage(for: stationMessage)
 
         return normalizedText(matchingTrainMessage?.lineNumber)
             ?? normalizedText(stationMessage?.trainNo)
@@ -562,8 +552,20 @@ private final class TrainRouteViewModel {
             ?? "-"
     }
 
-    var isFreightTrain: Bool {
-        CommonService.isFreightTrainCompany(trainMessage?.company)
+    /// Returns only the real line-number value (never a train number fallback), for use
+    /// when picking the line-number badge color — a train number has no color scheme.
+    func lineNumberValue(for stationMessage: StationMessage?) -> String? {
+        normalizedText(matchingTrainMessage(for: stationMessage)?.lineNumber)
+    }
+
+    private func matchingTrainMessage(for stationMessage: StationMessage?) -> TrainMessage? {
+        trainMessage.flatMap { trainMessage in
+            if let stationMessage {
+                return matches(trainMessage, stationMessage: stationMessage) ? trainMessage : nil
+            }
+
+            return trainMessage
+        }
     }
 
     var activeMapTrain: TrainMessage? {

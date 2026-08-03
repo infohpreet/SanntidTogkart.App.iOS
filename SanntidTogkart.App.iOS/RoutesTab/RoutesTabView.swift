@@ -140,18 +140,14 @@ struct RoutesTabView: View {
     }
 
     private func routeBadge(for message: RouteMessage) -> some View {
-        let isFreightTrain = CommonService.isFreightTrainCompany(message.company)
+        let style = LineNumberColorScheme.style(forLineNumber: message.lineNumber)
 
         return Text(message.routeNumberText)
             .font(.subheadline.monospacedDigit().weight(.bold))
-            .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(width: 58, height: 26)
-            .background(
-                isFreightTrain ? RoutesBoardStyle.freightGreen : RoutesBoardStyle.trainRed,
-                in: RoundedRectangle(cornerRadius: 1)
-            )
+            .lineNumberBadgeStyle(style)
     }
 }
 
@@ -184,6 +180,4 @@ private enum RoutesBoardStyle {
     static let background = AppTheme.surface
     static let divider = AppTheme.border
     static let mutedText = Color.secondary
-    static let freightGreen = Color(red: 0.17, green: 0.52, blue: 0.29)
-    static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
 }

@@ -623,20 +623,14 @@ private struct HomeFavoriteStationBoard: View {
     }
 
     private func trainBadge(for stationMessage: StationMessage, size: HomeFavoriteBadgeSize) -> some View {
-        let isFreightTrain = CommonService.isFreightTrainCompany(
-            viewModel.trainDetail(for: stationMessage)?.company
-        )
+        let style = LineNumberColorScheme.style(forLineNumber: viewModel.lineNumberOptionValue(for: stationMessage))
 
         return Text(viewModel.trainDisplayText(for: stationMessage))
             .font(size.font)
-            .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(width: size.width, height: size.height)
-            .background(
-                isFreightTrain ? HomeFavoriteBoardStyle.freightGreen : HomeFavoriteBoardStyle.trainRed,
-                in: RoundedRectangle(cornerRadius: 1)
-            )
+            .lineNumberBadgeStyle(style)
     }
 }
 
@@ -678,8 +672,6 @@ private enum HomeFavoriteBoardStyle {
     static let mutedText = Color.secondary
     static let secondaryText = Color.secondary
     static let delayYellow = Color(red: 0.86, green: 0.62, blue: 0.0)
-    static let freightGreen = Color(red: 0.17, green: 0.52, blue: 0.29)
-    static let trainRed = Color(red: 0.90, green: 0.06, blue: 0.12)
 }
 
 @MainActor
@@ -1057,7 +1049,7 @@ private final class HomeFavoriteStationBoardViewModel {
 
     /// Excludes the train number fallback so it is never treated as a real "line" value,
     /// matching the same rule used when building the selectable line filter options.
-    private func lineNumberOptionValue(for stationMessage: StationMessage) -> String? {
+    func lineNumberOptionValue(for stationMessage: StationMessage) -> String? {
         normalizedText(trainDetail(for: stationMessage)?.lineNumber) ?? fallbackLineNumber(for: stationMessage)
     }
 
