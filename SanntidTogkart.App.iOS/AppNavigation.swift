@@ -12,7 +12,7 @@ enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
         self
     }
 
-    static let startupTabs: [DashboardTab] = [.home, .map, .trains]
+    static let startupTabs: [DashboardTab] = [.home, .trains, .map]
 
     var title: String {
         switch self {

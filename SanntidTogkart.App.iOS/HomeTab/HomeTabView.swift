@@ -1054,12 +1054,8 @@ private final class HomeFavoriteStationBoardViewModel {
     }
 
     private func fallbackLineNumber(for stationMessage: StationMessage) -> String? {
-        trainMessagesByKey.values
-            .first(where: { trainMessage in
-                trainMessage.countryCode.localizedCaseInsensitiveCompare(stationMessage.countryCode) == .orderedSame
-                    && trainMessage.trainNo.localizedCaseInsensitiveCompare(stationMessage.trainNo) == .orderedSame
-            })
-            .flatMap { normalizedText($0.lineNumber) }
+        let looseKey = trainMessageLooseKey(countryCode: stationMessage.countryCode, trainNo: stationMessage.trainNo)
+        return trainMessagesByLooseKey[looseKey].flatMap { normalizedText($0.lineNumber) }
     }
 
     private func trackFilterValue(for stationMessage: StationMessage) -> String? {

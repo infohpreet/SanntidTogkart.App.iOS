@@ -695,6 +695,7 @@ private final class TrainListViewModel {
     private let upcomingRequestCount = 150
     private(set) var stationMessages: [StationMessage] = []
     private var trainMessagesByKey: [String: TrainMessage] = [:]
+    private var trainMessagesByLooseKey: [String: TrainMessage] = [:]
     private var stations: [TraseStation] = []
     private var requestedStationKey: String?
     private var requestedStationShortName: String?
@@ -767,9 +768,14 @@ private final class TrainListViewModel {
             }
 
             let key = self.trainMessageKey(for: trainMessage)
+            let looseKey = self.trainMessageLooseKey(countryCode: trainMessage.countryCode, trainNo: trainMessage.trainNo)
             var updated = self.trainMessagesByKey
             updated[key] = trainMessage
             self.trainMessagesByKey = updated
+
+            var updatedLoose = self.trainMessagesByLooseKey
+            updatedLoose[looseKey] = trainMessage
+            self.trainMessagesByLooseKey = updatedLoose
         }
 
         service.onError = { [weak self] message in
@@ -885,6 +891,7 @@ private final class TrainListViewModel {
         isLoading = true
         errorMessage = nil
         trainMessagesByKey = [:]
+        trainMessagesByLooseKey = [:]
         requestedStationKey = station.storageKey
         requestedStationShortName = stationShortName
         requestedStationName = station.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1015,6 +1022,12 @@ private final class TrainListViewModel {
         "\(countryCode)-\(trainNo)-\(originDate)"
     }
 
+    private func trainMessageLooseKey(countryCode: String, trainNo: String) -> String {
+        let normalizedCountryCode = countryCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let normalizedTrainNo = trainNo.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return "\(normalizedCountryCode)-\(normalizedTrainNo)"
+    }
+
     private func trainMessageKey(for stationMessage: StationMessage) -> String {
         trainMessageKey(
             countryCode: stationMessage.countryCode,
@@ -1140,12 +1153,8 @@ private final class TrainListViewModel {
     }
 
     private func fallbackLineNumber(for stationMessage: StationMessage) -> String? {
-        trainMessagesByKey.values
-            .first(where: { trainMessage in
-                trainMessage.countryCode.localizedCaseInsensitiveCompare(stationMessage.countryCode) == .orderedSame
-                    && trainMessage.trainNo.localizedCaseInsensitiveCompare(stationMessage.trainNo) == .orderedSame
-            })
-            .flatMap { normalizedText($0.lineNumber) }
+        let looseKey = trainMessageLooseKey(countryCode: stationMessage.countryCode, trainNo: stationMessage.trainNo)
+        return trainMessagesByLooseKey[looseKey].flatMap { normalizedText($0.lineNumber) }
     }
 
     private func trackFilterValue(for stationMessage: StationMessage) -> String? {
