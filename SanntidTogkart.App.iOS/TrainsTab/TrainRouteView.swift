@@ -133,13 +133,15 @@ struct TrainRouteView: View {
 
             LazyVStack(spacing: 0) {
                 let indices = displayedStationIndices
+                let effectiveCurrentIndex = effectiveCurrentIndex(in: indices)
 
                 ForEach(Array(indices.enumerated()), id: \.offset) { displayIndex, originalIndex in
                     routeRow(
                         viewModel.stationMessages[originalIndex],
                         originalIndex: originalIndex,
                         displayIndex: displayIndex,
-                        totalDisplayCount: indices.count
+                        totalDisplayCount: indices.count,
+                        effectiveCurrentIndex: effectiveCurrentIndex
                     )
                 }
             }
@@ -276,6 +278,23 @@ struct TrainRouteView: View {
         }
     }
 
+    /// The current-position row is normally the visible row whose `originalIndex` matches
+    /// `currentRouteIndex`. When the train's current position is a hidden passing station
+    /// (activity "P" with `showPassingStations` off), no visible row matches exactly, so the
+    /// circular indicator would disappear entirely. In that case, fall back to the closest
+    /// preceding visible row (or, if none, the closest following one) so the indicator still
+    /// shows on the route line.
+    private func effectiveCurrentIndex(in indices: [Int]) -> Int? {
+        let currentIndex = viewModel.currentRouteIndex
+
+        if indices.contains(currentIndex) {
+            return currentIndex
+        }
+
+        return indices.last { $0 < currentIndex } ?? indices.first { $0 > currentIndex }
+    }
+
+
     private var passingStationsToggleRow: some View {
         Toggle(isOn: $showPassingStations.animation(.easeInOut(duration: 0.2))) {
             VStack(alignment: .leading, spacing: 2) {
@@ -317,12 +336,12 @@ struct TrainRouteView: View {
         .padding(.bottom, 6)
     }
 
-    private func routeRow(_ message: StationMessage, originalIndex: Int, displayIndex: Int, totalDisplayCount: Int) -> some View {
+    private func routeRow(_ message: StationMessage, originalIndex: Int, displayIndex: Int, totalDisplayCount: Int, effectiveCurrentIndex: Int?) -> some View {
         HStack(alignment: .center, spacing: 10) {
             timeColumn(for: message, index: originalIndex)
                 .frame(width: 56, alignment: .leading)
 
-            timelineMarker(originalIndex: originalIndex, displayIndex: displayIndex, totalDisplayCount: totalDisplayCount)
+            timelineMarker(originalIndex: originalIndex, displayIndex: displayIndex, totalDisplayCount: totalDisplayCount, effectiveCurrentIndex: effectiveCurrentIndex)
                 .frame(width: 32, height: 56)
 
             Text(viewModel.stationName(for: message))
@@ -365,9 +384,9 @@ struct TrainRouteView: View {
         }
     }
 
-    private func timelineMarker(originalIndex: Int, displayIndex: Int, totalDisplayCount: Int) -> some View {
+    private func timelineMarker(originalIndex: Int, displayIndex: Int, totalDisplayCount: Int, effectiveCurrentIndex: Int?) -> some View {
         let currentIndex = viewModel.currentRouteIndex
-        let isCurrent = originalIndex == currentIndex
+        let isCurrent = originalIndex == effectiveCurrentIndex
         let isPassed = originalIndex < currentIndex
         let isFirst = displayIndex == 0
         let isLast = displayIndex == totalDisplayCount - 1
