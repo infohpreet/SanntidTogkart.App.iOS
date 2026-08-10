@@ -271,10 +271,21 @@ struct TrainRouteView: View {
     /// Indices into `viewModel.stationMessages` for the rows that should currently be rendered.
     /// Passing stations (activity "P") are hidden by default and only included once the user
     /// enables `showPassingStations`, without affecting the original index used for highlighting
-    /// the current position along the route.
+    /// the current position along the route. If every station on the route is a passing station,
+    /// the first and last are still shown so the route never collapses to an empty list.
     private var displayedStationIndices: [Int] {
-        viewModel.stationMessages.indices.filter { index in
-            showPassingStations || !viewModel.isPassingActivity(viewModel.stationMessages[index])
+        let messages = viewModel.stationMessages
+
+        guard !messages.isEmpty else {
+            return []
+        }
+
+        if !showPassingStations, messages.allSatisfy({ viewModel.isPassingActivity($0) }) {
+            return Array(Set([messages.startIndex, messages.index(before: messages.endIndex)])).sorted()
+        }
+
+        return messages.indices.filter { index in
+            showPassingStations || !viewModel.isPassingActivity(messages[index])
         }
     }
 
