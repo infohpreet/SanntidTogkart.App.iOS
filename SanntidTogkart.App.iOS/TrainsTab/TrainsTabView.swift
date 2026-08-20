@@ -109,32 +109,42 @@ struct TrainsTabView: View {
     }
 
     private func activeTrainRow(_ entry: ActiveTrainEntry) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
-                timeColumn(for: entry.stationMessage)
-                    .frame(width: 56, alignment: .leading)
+        HStack(alignment: .center, spacing: 12) {
+            timeColumn(for: entry.stationMessage)
+                .frame(width: 64, alignment: .leading)
 
-                trainBadge(for: entry)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    trainBadge(for: entry)
 
-                Text(entry.cityName)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    Text(entry.cityName)
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+
+                Text(originText(for: entry))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
+            VStack(alignment: .trailing, spacing: 6) {
                 if let trackText = trackText(for: entry.stationMessage) {
                     Text(trackText)
                         .font(.subheadline.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-            }
 
-            Text(routeText(for: entry))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+                Text(destinationText(for: entry))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -161,15 +171,24 @@ struct TrainsTabView: View {
             ?? "-"
     }
 
-    private func routeText(for entry: ActiveTrainEntry) -> String {
+    private func originText(for entry: ActiveTrainEntry) -> String {
         guard let trainMessage = entry.trainMessage,
-              let origin = viewModel.displayName(forStationCode: trainMessage.origin, countryCode: trainMessage.countryCode),
+              let origin = viewModel.displayName(forStationCode: trainMessage.origin, countryCode: trainMessage.countryCode)
+        else {
+            return "Ukjent"
+        }
+
+        return origin
+    }
+
+    private func destinationText(for entry: ActiveTrainEntry) -> String {
+        guard let trainMessage = entry.trainMessage,
               let destination = viewModel.displayName(forStationCode: trainMessage.destination, countryCode: trainMessage.countryCode)
         else {
             return "Ukjent"
         }
 
-        return "\(origin) → \(destination)"
+        return destination
     }
 
     @ViewBuilder
@@ -179,17 +198,17 @@ struct TrainsTabView: View {
         if let expectedText = expectedTimeText(for: stationMessage) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(expectedText)
-                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .font(.title3.monospacedDigit().weight(.bold))
                     .foregroundStyle(ActiveTrainsBoardStyle.delayYellow)
 
                 Text(scheduledText)
-                    .font(.caption2.monospacedDigit())
+                    .font(.subheadline.monospacedDigit())
                     .foregroundStyle(ActiveTrainsBoardStyle.secondaryText)
                     .strikethrough(true, color: ActiveTrainsBoardStyle.secondaryText)
             }
         } else {
             Text(scheduledText)
-                .font(.subheadline.monospacedDigit().weight(.semibold))
+                .font(.title3.monospacedDigit().weight(.bold))
                 .foregroundStyle(.primary)
         }
     }
