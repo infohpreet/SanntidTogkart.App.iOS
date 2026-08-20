@@ -542,23 +542,25 @@ struct TrainMapTabView: View {
         if showsTrainMarkers && !isTrainListPresented {
             ForEach(renderedTrains) { train in
                 if let coordinate = viewModel.mapCoordinate(for: train) {
-                    Annotation(viewModel.displayLineNumber(for: train), coordinate: coordinate) {
-                        Button {
-                            toggleSelection(for: train)
-                        } label: {
+                    Annotation("", coordinate: coordinate) {
+                        Group {
                             if isCountryZoomedOut {
                                 TrainMapDotAnnotation(
-                                    freightIdentifier: freightIdentifier(for: train),
+                                    lineNumber: displayLineNumber(for: train),
                                     isHighlighted: train.id == viewModel.selectedTrainMessageID
                                 )
                             } else {
                                 TrainMapAnnotation(
-                                    freightIdentifier: freightIdentifier(for: train),
+                                    lineNumber: displayLineNumber(for: train),
+                                    badgeText: displayLineNumber(for: train) ?? displayTrainNumber(for: train),
                                     isHighlighted: train.id == viewModel.selectedTrainMessageID
                                 )
                             }
                         }
-                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            toggleSelection(for: train)
+                        }
                         .zIndex(2)
                     }
                 }
@@ -567,15 +569,16 @@ struct TrainMapTabView: View {
             if let selectedTrain,
                let coordinate = viewModel.mapCoordinate(for: selectedTrain),
                !renderedTrains.contains(where: { $0.id == selectedTrain.id }) {
-                Annotation(viewModel.displayLineNumber(for: selectedTrain), coordinate: coordinate) {
+                Annotation("", coordinate: coordinate) {
                     if isCountryZoomedOut {
                         TrainMapDotAnnotation(
-                            freightIdentifier: freightIdentifier(for: selectedTrain),
+                            lineNumber: displayLineNumber(for: selectedTrain),
                             isHighlighted: true
                         )
                     } else {
                         TrainMapAnnotation(
-                            freightIdentifier: freightIdentifier(for: selectedTrain),
+                            lineNumber: displayLineNumber(for: selectedTrain),
+                            badgeText: displayLineNumber(for: selectedTrain) ?? displayTrainNumber(for: selectedTrain),
                             isHighlighted: true
                         )
                     }
@@ -586,10 +589,6 @@ struct TrainMapTabView: View {
 
     private var selectedTrain: TrainMessage? {
         viewModel.selectedTrain
-    }
-
-    private func freightIdentifier(for trainMessage: TrainMessage) -> String? {
-        normalizedText(trainMessage.company)
     }
 
     private var selectedStation: TraseStation? {
@@ -1783,12 +1782,14 @@ private struct StationMapDotAnnotation: View {
 }
 
 private struct TrainMapDotAnnotation: View {
-    let freightIdentifier: String?
+    let lineNumber: String?
     let isHighlighted: Bool
 
     var body: some View {
+        let style = LineNumberColorScheme.style(forLineNumber: lineNumber)
+
         Circle()
-            .fill(isHighlighted ? Color.orange : trainMarkerColor(for: freightIdentifier))
+            .fill(isHighlighted ? Color.orange : style.background)
             .frame(width: isHighlighted ? 15 : 12, height: isHighlighted ? 15 : 12)
             .overlay {
                 Circle()
@@ -1894,38 +1895,26 @@ private struct StationMapAnnotation: View {
 }
 
 private struct TrainMapAnnotation: View {
-    let freightIdentifier: String?
+    let lineNumber: String?
+    let badgeText: String
     let isHighlighted: Bool
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: isHighlighted ? 5 : 4, style: .continuous)
-                .fill(Color.accentColor)
-                .frame(width: isHighlighted ? 26 : 22, height: isHighlighted ? 17 : 14)
-                .overlay {
-                    RoundedRectangle(cornerRadius: isHighlighted ? 5 : 4, style: .continuous)
-                        .stroke(Color.white, lineWidth: 1)
+        let style = LineNumberColorScheme.style(forLineNumber: lineNumber)
+
+        Text(badgeText)
+            .font(.subheadline.monospacedDigit().weight(.bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: 58, height: 26)
+            .lineNumberBadgeStyle(style)
+            .overlay {
+                if isHighlighted {
+                    RoundedRectangle(cornerRadius: 1, style: .continuous)
+                        .stroke(Color.orange, lineWidth: 2)
                 }
-
-            Image(systemName: "train.side.front.car")
-                .font(isHighlighted ? .subheadline.weight(.bold) : .caption.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: isHighlighted ? 15 : 12, height: isHighlighted ? 15 : 12)
-        }
-        .shadow(color: markerColor.opacity(0.30), radius: isHighlighted ? 7 : 4, y: 2)
-    }
-
-    private var markerColor: Color {
-        isHighlighted ? .orange : trainMarkerColor(for: freightIdentifier)
-    }
-}
-
-private func trainMarkerColor(for freightIdentifier: String?) -> Color {
-    switch CommonService.isFreightTrainCompany(freightIdentifier) {
-    case true:
-        return .green
-    case false:
-        return .accentColor
+            }
+            .shadow(color: Color.black.opacity(isHighlighted ? 0.28 : 0.20), radius: isHighlighted ? 5 : 3, y: 1)
     }
 }
 
