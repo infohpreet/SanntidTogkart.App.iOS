@@ -126,7 +126,7 @@ struct TrainsTabView: View {
                     if let trackText = trackText(for: entry.stationMessage) {
                         Text(trackText)
                             .font(.subheadline.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(isPrimaryTrackActivity(for: entry.stationMessage) ? .primary : .secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -256,6 +256,10 @@ struct TrainsTabView: View {
 
     private func trackText(for stationMessage: StationMessage) -> String? {
         normalizedText(stationMessage.expectedTrack) ?? normalizedText(stationMessage.scheduledTrack)
+    }
+
+    private func isPrimaryTrackActivity(for stationMessage: StationMessage) -> Bool {
+        normalizedText(stationMessage.activity)?.uppercased() == "S"
     }
 
     private func normalizedText(_ value: String?) -> String? {
