@@ -446,6 +446,7 @@ final class ActiveTrainsTabViewModel {
                     cityName: displayStationName(for: stationMessage.city, countryCode: stationMessage.countryCode)
                 )
             }
+            .filter { sortDate(for: $0.stationMessage) >= AppTime.now.addingTimeInterval(60) }
             .sorted { sortDate(for: $0.stationMessage) < sortDate(for: $1.stationMessage) }
         applySearch()
     }
@@ -476,10 +477,10 @@ final class ActiveTrainsTabViewModel {
     }
 
     private func sortDate(for stationMessage: StationMessage) -> Date {
-        stationMessage.std
-            ?? stationMessage.sta
-            ?? stationMessage.etd
+        stationMessage.etd
             ?? stationMessage.eta
+            ?? stationMessage.std
+            ?? stationMessage.sta
             ?? stationMessage.originTime
             ?? .distantFuture
     }
