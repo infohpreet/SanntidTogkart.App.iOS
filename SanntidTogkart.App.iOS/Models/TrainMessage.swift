@@ -14,6 +14,7 @@ struct TrainMessage: Codable, Identifiable, Sendable {
     let lineNumber: String?
     let company: String?
     let scheduled: Bool?
+    let cancelStatus: String
     let trainLocation: TrainLocation?
     let createdAt: Date
     let lastUpdatedAt: Date

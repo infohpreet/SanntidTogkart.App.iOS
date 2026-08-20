@@ -10,6 +10,7 @@ struct StationMessage: Codable, Identifiable {
     let createdAt: Date
     let eta: Date?
     let etd: Date?
+    let expectedTrack: String?
     let id: Int
     let lastUpdatedAt: Date
     let messageKey: String
@@ -18,6 +19,7 @@ struct StationMessage: Codable, Identifiable {
     let scheduled: Bool?
     let scheduledTrack: String?
     let sta: Date?
+    let stationCancel: String?
     let std: Date?
     let trainKind: String?
     let trainNo: String

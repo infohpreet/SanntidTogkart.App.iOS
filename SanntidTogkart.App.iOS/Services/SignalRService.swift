@@ -10,6 +10,7 @@ final class SignalRService {
     var onStations: (([TraseStation]) -> Void)?
     var onStationMessages: (([StationMessage]) -> Void)?
     var onStationMessagesUpcoming: (([StationMessage]) -> Void)?
+    var onActiveStationMessages: (([StationMessage]) -> Void)?
     var onTrainStations: (([StationMessage]) -> Void)?
     var onTrainMessages: (([TrainMessage]) -> Void)?
     var onTrainMessage: ((TrainMessage) -> Void)?
@@ -354,6 +355,20 @@ final class SignalRService {
         }
     }
 
+    func requestActiveStationMessages(futureMinutes: Int) async {
+        guard let webSocketTask = Self.webSocketTask else {
+            Self.pendingRequests.append(.activeStationMessages(futureMinutes))
+            await start()
+            return
+        }
+
+        do {
+            try await sendGetActiveStationMessages(futureMinutes: futureMinutes, on: webSocketTask)
+        } catch {
+            reportError(error, context: "requestActiveStationMessages")
+        }
+    }
+
     private func runConnectionLoop() async {
         while !Task.isCancelled && !Self.isStopped {
             do {
@@ -606,6 +621,20 @@ final class SignalRService {
         )
     }
 
+    private func sendGetActiveStationMessages(
+        futureMinutes: Int,
+        on webSocketTask: URLSessionWebSocketTask
+    ) async throws {
+        try await sendInvocation(
+            invocationID: "get-active-station-messages-\(futureMinutes)",
+            target: "GetActiveStationMessages",
+            arguments: [
+                .int(futureMinutes)
+            ],
+            on: webSocketTask
+        )
+    }
+
     private func sendInvocation(
         invocationID: String,
         target: String,
@@ -678,6 +707,8 @@ final class SignalRService {
                     count: count,
                     on: webSocketTask
                 )
+            case .activeStationMessages(let futureMinutes):
+                try await sendGetActiveStationMessages(futureMinutes: futureMinutes, on: webSocketTask)
             }
         }
     }
@@ -833,6 +864,20 @@ final class SignalRService {
                     } catch {
                         await MainActor.run {
                             self.logDecodingFailure(prefix: "SignalR ReceiveStationMessagesUpcoming", error: error, data: argumentData)
+                        }
+                    }
+                }
+            case "ReceiveActiveStationMessages":
+                let decoder = self.decoder
+                Task.detached(priority: .userInitiated) {
+                    do {
+                        let stationMessages = try decoder.decode([StationMessage].self, from: argumentData)
+                        await MainActor.run {
+                            Self.broadcast { $0.onActiveStationMessages?(stationMessages) }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            self.logDecodingFailure(prefix: "SignalR ReceiveActiveStationMessages", error: error, data: argumentData)
                         }
                     }
                 }
@@ -1166,6 +1211,7 @@ final class SignalRService {
             lineNumber: trainMessage.lineNumber,
             company: trainMessage.company,
             scheduled: trainMessage.scheduled,
+            cancelStatus: trainMessage.cancelStatus,
             trainLocation: trainLocation,
             createdAt: trainMessage.createdAt,
             lastUpdatedAt: trainMessage.lastUpdatedAt
@@ -1254,6 +1300,7 @@ private enum PendingRequest {
     case stations(String?)
     case stationMessages(String, String, String)
     case stationMessagesUpcoming(String, String, Int)
+    case activeStationMessages(Int)
     case trainMessages(String?, Date)
     case trainLocationsList(String, String, String)
     case trainMessage(String, String, String)
