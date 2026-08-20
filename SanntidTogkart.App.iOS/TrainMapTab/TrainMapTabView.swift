@@ -1903,10 +1903,10 @@ private struct TrainMapAnnotation: View {
         let style = LineNumberColorScheme.style(forLineNumber: lineNumber)
 
         Text(badgeText)
-            .font(.subheadline.monospacedDigit().weight(.bold))
+            .font(.caption2.monospacedDigit().weight(.bold))
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .frame(width: 58, height: 26)
+            .frame(width: 38, height: 18)
             .lineNumberBadgeStyle(style)
             .overlay {
                 if isHighlighted {
