@@ -109,14 +109,12 @@ struct TrainsTabView: View {
     }
 
     private func activeTrainRow(_ entry: ActiveTrainEntry) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            timeColumn(for: entry.stationMessage)
-                .frame(width: 64, alignment: .leading)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 12) {
+                trainBadge(for: entry)
+                    .frame(width: 64, alignment: .center)
 
-            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    trainBadge(for: entry)
-
                     Text(entry.cityName)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.primary)
@@ -131,6 +129,12 @@ struct TrainsTabView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(alignment: .center, spacing: 12) {
+                timeColumn(for: entry.stationMessage)
+                    .frame(width: 64, alignment: .center)
 
                 HStack(spacing: 6) {
                     Text(originText(for: entry))
@@ -149,8 +153,8 @@ struct TrainsTabView: View {
                         .minimumScaleFactor(0.82)
                         .layoutPriority(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -215,19 +219,19 @@ struct TrainsTabView: View {
         let scheduledText = scheduledTimeText(for: stationMessage)
 
         if let expectedText = expectedTimeText(for: stationMessage) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .center, spacing: 1) {
                 Text(expectedText)
-                    .font(.title3.monospacedDigit().weight(.bold))
+                    .font(.footnote.monospacedDigit().weight(.bold))
                     .foregroundStyle(ActiveTrainsBoardStyle.delayYellow)
 
                 Text(scheduledText)
-                    .font(.subheadline.monospacedDigit())
+                    .font(.caption2.monospacedDigit())
                     .foregroundStyle(ActiveTrainsBoardStyle.secondaryText)
                     .strikethrough(true, color: ActiveTrainsBoardStyle.secondaryText)
             }
         } else {
             Text(scheduledText)
-                .font(.title3.monospacedDigit().weight(.bold))
+                .font(.footnote.monospacedDigit().weight(.bold))
                 .foregroundStyle(.primary)
         }
     }
