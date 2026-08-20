@@ -31,7 +31,7 @@ struct TrainsTabView: View {
                                     systemImage: viewModel.searchText.isEmpty ? "tram.fill" : "magnifyingglass",
                                     description: Text(
                                         viewModel.searchText.isEmpty
-                                        ? "Ingen tog er aktive de neste 5 minuttene."
+                                        ? "Ingen tog er aktive de neste 10 minuttene."
                                         : "Ingen tog matcher soket ditt."
                                     )
                                 )
@@ -78,8 +78,6 @@ struct TrainsTabView: View {
         let entries = viewModel.filteredEntries
 
         return LazyVStack(spacing: 0) {
-            boardHeader
-
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 Group {
                     if let trainMessage = entry.trainMessage {
@@ -110,60 +108,33 @@ struct TrainsTabView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
-    private var boardHeader: some View {
-        VStack(spacing: 10) {
-            Rectangle()
-                .fill(ActiveTrainsBoardStyle.divider)
-                .frame(height: 1)
-
-            HStack(spacing: 10) {
-                Text("Tid")
+    private func activeTrainRow(_ entry: ActiveTrainEntry) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                timeColumn(for: entry.stationMessage)
                     .frame(width: 56, alignment: .leading)
 
-                Color.clear
-                    .frame(width: 58, height: 1)
+                trainBadge(for: entry)
 
-                Text("Stasjon")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text("Rute")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(ActiveTrainsBoardStyle.mutedText)
-            .padding(.horizontal, 18)
-        }
-        .padding(.bottom, 6)
-    }
-
-    private func activeTrainRow(_ entry: ActiveTrainEntry) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            timeColumn(for: entry.stationMessage)
-                .frame(width: 56, alignment: .leading)
-
-            trainBadge(for: entry)
-
-            VStack(alignment: .leading, spacing: 2) {
                 Text(entry.cityName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.headline.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let trackText = trackText(for: entry.stationMessage) {
-                    Text("Spor \(trackText)")
-                        .font(.caption2)
+                    Text(trackText)
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(routeText(for: entry))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -254,7 +225,6 @@ struct TrainsTabView: View {
 private enum ActiveTrainsBoardStyle {
     static let background = AppTheme.surface
     static let divider = AppTheme.border
-    static let mutedText = Color.secondary
     static let secondaryText = Color.secondary
     static let delayYellow = Color(red: 0.86, green: 0.62, blue: 0.0)
 }
@@ -277,7 +247,7 @@ final class ActiveTrainsTabViewModel {
     var searchText = ""
 
     private let service: SignalRService
-    private let futureMinutes = 5
+    private let futureMinutes = 10
     private var hasStarted = false
     private var stationMessages: [StationMessage] = []
     private var stations: [TraseStation] = []
