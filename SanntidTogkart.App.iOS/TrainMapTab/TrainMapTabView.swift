@@ -1942,19 +1942,16 @@ private struct SelectedTrainCard: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 8) {
-                        TrainCountryFlagBadge(countryCode: train.countryCode)
-
                         let lineNumber = displayLineNumber(for: train)
 
                         Text(lineNumber ?? displayTrainNumber(for: train))
-                            .font(.headline.monospacedDigit().weight(.bold))
-                            .foregroundStyle(.primary)
+                            .font(.subheadline.monospacedDigit().weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(width: 58, height: 26)
+                            .lineNumberBadgeStyle(LineNumberColorScheme.style(forLineNumber: lineNumber))
 
                         if lineNumber != nil {
-                            Text("•")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.secondary)
-
                             Text(displayTrainNumber(for: train))
                                 .font(.headline.monospacedDigit().weight(.bold))
                                 .foregroundStyle(.primary)
@@ -2086,19 +2083,16 @@ private struct CollapsedSelectedTrainCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 HStack(spacing: 8) {
-                    TrainCountryFlagBadge(countryCode: train.countryCode)
-
                     let lineNumber = displayLineNumber(for: train)
 
                     Text(lineNumber ?? displayTrainNumber(for: train))
-                        .font(.headline.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.primary)
+                        .font(.subheadline.monospacedDigit().weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: 58, height: 26)
+                        .lineNumberBadgeStyle(LineNumberColorScheme.style(forLineNumber: lineNumber))
 
                     if lineNumber != nil {
-                        Text("•")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
-
                         Text(displayTrainNumber(for: train))
                             .font(.headline.monospacedDigit().weight(.bold))
                             .foregroundStyle(.primary)
@@ -2322,27 +2316,6 @@ private struct SelectedStationCard: View {
     }
 }
 
-private struct TrainCountryFlagBadge: View {
-    let countryCode: String
-
-    var body: some View {
-        Group {
-            switch countryCode.uppercased() {
-            case "NO":
-                SmallNorwayFlagBadge()
-            case "SE":
-                SmallSwedenFlagBadge()
-            default:
-                Image(systemName: "tram.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 34, height: 22)
-                    .background(AppTheme.elevatedSurface, in: Rectangle())
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
-}
 
 private struct TrainListCountryFlagBadge: View {
     let countryCode: String
