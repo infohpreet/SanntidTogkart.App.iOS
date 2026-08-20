@@ -3,27 +3,27 @@ import Observation
 
 enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
     case map
-    case trains
+    case search
     case home
-    case routes
+    case trains
     case settings
 
     var id: Self {
         self
     }
 
-    static let startupTabs: [DashboardTab] = [.home, .trains, .map]
+    static let startupTabs: [DashboardTab] = [.home, .search, .map]
 
     var title: String {
         switch self {
         case .map:
             return "Kart"
-        case .trains:
+        case .search:
             return "Søk"
         case .home:
             return "Hjem"
-        case .routes:
-            return "Ruter"
+        case .trains:
+            return "Tog"
         case .settings:
             return "Mer"
         }
