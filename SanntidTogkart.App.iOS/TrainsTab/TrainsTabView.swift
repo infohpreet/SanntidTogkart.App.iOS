@@ -122,34 +122,53 @@ struct TrainsTabView: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
+
+                    Spacer(minLength: 8)
+
+                    if let trackText = trackText(for: entry.stationMessage) {
+                        Text(trackText)
+                            .font(.subheadline.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
-                Text(originText(for: entry))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                HStack(spacing: 6) {
+                    Text(originText(for: entry))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                        .layoutPriority(1)
+
+                    routeArrow
+
+                    Text(destinationText(for: entry))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                        .layoutPriority(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            VStack(alignment: .trailing, spacing: 6) {
-                if let trackText = trackText(for: entry.stationMessage) {
-                    Text(trackText)
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-
-                Text(destinationText(for: entry))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+
+    private var routeArrow: some View {
+        HStack(spacing: 2) {
+            Rectangle()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(height: 1)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.secondary)
+        }
+        .frame(minWidth: 16, maxWidth: .infinity)
     }
 
     private func trainBadge(for entry: ActiveTrainEntry) -> some View {
