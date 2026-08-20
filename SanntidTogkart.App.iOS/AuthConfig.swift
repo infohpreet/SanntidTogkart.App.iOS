@@ -3,10 +3,13 @@ import Foundation
 enum AuthConfig {
     static var currentEnvironment: AppEnvironment {
         get {
-            .training
+            let storedRawValue = UserDefaults.standard.string(forKey: StorageKeys.environment)
+            let storedEnvironment = storedRawValue.flatMap(AppEnvironment.init(rawValue:))
+            return storedEnvironment == .staging ? .staging : .training
         }
         set {
-            UserDefaults.standard.set(AppEnvironment.training.rawValue, forKey: StorageKeys.environment)
+            let environment: AppEnvironment = newValue == .staging ? .staging : .training
+            UserDefaults.standard.set(environment.rawValue, forKey: StorageKeys.environment)
         }
     }
 

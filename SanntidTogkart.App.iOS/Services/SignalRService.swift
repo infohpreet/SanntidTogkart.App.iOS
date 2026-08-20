@@ -71,15 +71,15 @@ final class SignalRService {
     }
 
     static func switchEnvironment(to environment: AppEnvironment) async {
-        guard environment == .training else {
+        guard environment == .training || environment == .staging else {
             return
         }
 
-        guard AuthConfig.currentEnvironment != .training else {
+        guard AuthConfig.currentEnvironment != environment else {
             return
         }
 
-        AuthConfig.currentEnvironment = .training
+        AuthConfig.currentEnvironment = environment
         await reloadForCurrentEnvironment()
     }
 
