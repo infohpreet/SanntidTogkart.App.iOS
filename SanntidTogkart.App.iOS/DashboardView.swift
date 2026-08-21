@@ -25,7 +25,7 @@ struct DashboardView: View {
             TrainsTabView()
             .tag(DashboardTab.trains)
             .tabItem {
-                tabItemLabel("Tog", systemImage: "tram")
+                tabItemLabel("Nå", systemImage: "tram")
             }
 
             SearchTabView()

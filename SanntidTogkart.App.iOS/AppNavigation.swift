@@ -23,7 +23,7 @@ enum DashboardTab: String, CaseIterable, Identifiable, Hashable {
         case .home:
             return "Hjem"
         case .trains:
-            return "Tog"
+            return "Nå"
         case .settings:
             return "Mer"
         }

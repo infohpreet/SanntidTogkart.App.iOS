@@ -54,7 +54,7 @@ struct TrainsTabView: View {
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
-            .navigationTitle("Tog")
+            .navigationTitle("Nå")
             .searchable(text: $searchText, prompt: "Sok etter tog, linje eller stasjon")
         }
         .task {

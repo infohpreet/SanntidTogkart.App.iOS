@@ -48,7 +48,7 @@ struct SettingsTabView: View {
             NavigationLink {
                 RoutesTabView()
             } label: {
-                menuRow(title: "Tog", systemImage: "arrow.triangle.swap")
+                menuRow(title: "Ruter", systemImage: "arrow.triangle.swap")
             }
             .buttonStyle(.plain)
 
