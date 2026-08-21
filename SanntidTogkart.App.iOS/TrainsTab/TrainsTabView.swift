@@ -31,7 +31,7 @@ struct TrainsTabView: View {
                                     systemImage: viewModel.searchText.isEmpty ? "tram.fill" : "magnifyingglass",
                                     description: Text(
                                         viewModel.searchText.isEmpty
-                                        ? "Ingen tog er aktive de neste 10 minuttene."
+                                        ? "Ingen tog er aktive de neste 60 minuttene."
                                         : "Ingen tog matcher soket ditt."
                                     )
                                 )
@@ -293,7 +293,7 @@ final class ActiveTrainsTabViewModel {
     var searchText = ""
 
     private let service: SignalRService
-    private let futureMinutes = 10
+    private let futureMinutes = 60
     private var hasStarted = false
     private var stationMessages: [StationMessage] = []
     private var stations: [TraseStation] = []
