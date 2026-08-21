@@ -1777,7 +1777,7 @@ private struct StationMapDotAnnotation: View {
     }
 
     private var iconColor: Color {
-        stationMarkerGreen
+        stationMarkerBlue
     }
 }
 
@@ -1890,7 +1890,7 @@ private struct StationMapAnnotation: View {
     }
 
     private var iconColor: Color {
-        .orange
+        stationMarkerBlue
     }
 }
 
@@ -1918,7 +1918,7 @@ private struct TrainMapAnnotation: View {
     }
 }
 
-private let stationMarkerGreen = Color.orange
+private let stationMarkerBlue = Color(red: 0.16, green: 0.47, blue: 0.87)
 
 private struct SelectedTrainCard: View {
     let train: TrainMessage
